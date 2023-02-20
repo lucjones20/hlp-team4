@@ -102,3 +102,20 @@ let updateModelWires
     |> Optic.map wires_ (fun wireMap  ->
         (wireMap,wiresToAdd)
         ||> List.fold (fun wireMap wireToAdd -> Map.add wireToAdd.WId wireToAdd wireMap))
+
+
+
+/// Find the Y position of input ports for a given symbol
+/// HLP23: AUTHOR Jones
+let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
+    symbol.PortMaps.Order.TryFind Left
+    |> Option.defaultValue []
+    |> List.map (Symbol.getPortLocation None model) 
+
+
+/// Find the Y position of output ports of a given symbol
+/// HLP23: AUTHOR Jones
+let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
+    symbol.PortMaps.Order.TryFind Right
+    |> Option.defaultValue [] 
+    |> List.map (Symbol.getPortLocation None model) 
