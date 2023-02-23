@@ -106,16 +106,42 @@ let updateModelWires
 
 
 /// Find the Y position of input ports for a given symbol
+/// Function takes in a SymbolT model and a symbol
+/// This uses the getPortLocation from the Symbol module and applies it to the
+/// list of port ids located on the left side of the module
 /// HLP23: AUTHOR Jones
 let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
-    symbol.PortMaps.Order.TryFind Left
-    |> Option.defaultValue []
-    |> List.map (Symbol.getPortLocation None model) 
+    symbol.PortMaps.Order.TryFind Left // try to get list of port ids of the symbol
+    |> Option.defaultValue [] // extract the list from option
+    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto the list of port ids
 
 
 /// Find the Y position of output ports of a given symbol
+/// Function takes in a SymbolT model and a symbol
+/// This uses the getPortLocation from the Symbol module and applies it to the
+/// list of port ids located on the right side of the module
 /// HLP23: AUTHOR Jones
 let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
-    symbol.PortMaps.Order.TryFind Right
-    |> Option.defaultValue [] 
-    |> List.map (Symbol.getPortLocation None model) 
+    symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
+    |> Option.defaultValue [] // extract list from option
+    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
+
+/// sort 2 symbols with respect to their X position
+/// the left most symbol will be the first element in the return tuple
+/// HLP23: AUTHOR Jones
+let sortSymbolsLeftToRight (s1: Symbol) (s2: Symbol) = 
+    if (toX s1.Pos < toX s2.Pos) then s1, s2
+    else s2, s1
+
+/// returns a map of the wires connected from s1 to s2
+/// HLP23: AUTHOR Jones
+let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol) = 
+    let matchInputOutputPorts key value : bool= 
+        ((s1.Component.OutputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.OutputPort))
+        && ( s2.Component.InputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.InputPort)))
+    wModel.Wires
+    |> Map.filter matchInputOutputPorts
