@@ -139,9 +139,24 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol) =
     let matchInputOutputPorts key value : bool= 
         ((s1.Component.OutputPorts
         |> List.map (fun (x:Port) -> x.Id)
-        |> List.contains (string value.OutputPort))
+        |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
         && ( s2.Component.InputPorts
         |> List.map (fun (x:Port) -> x.Id)
-        |> List.contains (string value.InputPort)))
+        |> List.contains (string value.InputPort))) // check that one of the right symbol's input ports is the wire's input port
     wModel.Wires
     |> Map.filter matchInputOutputPorts
+
+
+/// lenses used to edit symbols 
+/// HLP23: should be placed in DrawModelType and CommonTypes
+/// HLP23: AUTHOR Jones
+let pos_: Lens<Symbol,XYPos> = Lens.create (fun a -> a.Pos) (fun s a -> {a with Pos = s}) // change Pos of Symbol
+
+let x_: Lens<XYPos,float>= Lens.create (fun a -> a.X) (fun s a -> {a with X = s}) // change Y of XYPos
+
+let y_: Lens<XYPos,float> = Lens.create (fun a -> a.Y) (fun s a -> {a with Y = s}) // change X of XYPos
+
+let labelBoundingBox_: Lens<Symbol, BoundingBox> = // change LabelBoundingBox of Symbol
+    Lens.create (fun a -> a.LabelBoundingBox) (fun s a -> {a with LabelBoundingBox = s}) 
+
+let topLeft_: Lens<BoundingBox, XYPos> = Lens.create (fun a -> a.TopLeft) (fun s a -> {a with TopLeft = s}) // change TopLeft of LabelBoundingBox
