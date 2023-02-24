@@ -110,7 +110,7 @@ let updateModelWires
 /// This uses the getPortLocation from the Symbol module and applies it to the
 /// list of port ids located on the left side of the module
 /// HLP23: AUTHOR Jones
-let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
+let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list = 
     symbol.PortMaps.Order.TryFind Left // try to get list of port ids of the symbol
     |> Option.defaultValue [] // extract the list from option
     |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto the list of port ids
@@ -121,7 +121,7 @@ let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol) =
 /// This uses the getPortLocation from the Symbol module and applies it to the
 /// list of port ids located on the right side of the module
 /// HLP23: AUTHOR Jones
-let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
+let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list= 
     symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
     |> Option.defaultValue [] // extract list from option
     |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
@@ -129,13 +129,13 @@ let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol) =
 /// sort 2 symbols with respect to their X position
 /// the left most symbol will be the first element in the return tuple
 /// HLP23: AUTHOR Jones
-let sortSymbolsLeftToRight (s1: Symbol) (s2: Symbol) = 
+let sortSymbolsLeftToRight (s1: Symbol) (s2: Symbol): Symbol * Symbol= 
     if (toX s1.Pos < toX s2.Pos) then s1, s2
     else s2, s1
 
 /// returns a map of the wires connected from s1 to s2
 /// HLP23: AUTHOR Jones
-let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol) = 
+let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): Map<ConnectionId, Wire> = 
     let matchInputOutputPorts key value : bool= 
         ((s1.Component.OutputPorts
         |> List.map (fun (x:Port) -> x.Id)
@@ -160,3 +160,23 @@ let labelBoundingBox_: Lens<Symbol, BoundingBox> = // change LabelBoundingBox of
     Lens.create (fun a -> a.LabelBoundingBox) (fun s a -> {a with LabelBoundingBox = s}) 
 
 let topLeft_: Lens<BoundingBox, XYPos> = Lens.create (fun a -> a.TopLeft) (fun s a -> {a with TopLeft = s}) // change TopLeft of LabelBoundingBox
+
+/// this functions takes two lists: the first one is the original list where a sublist is ordered wrong and the second
+/// is the correct ordering of that sublist 
+/// this function will return a list starting with the order of the original list and once it hits an element in the sublist
+/// the return list's order will be the desired order of the sublist (note that the elements in the sublist are now all grouped up
+/// in the return list, which is not necessarily the case in the original list)
+/// if there are any elements remaining from the original list not yet added to the return list, the order of the return list will
+/// go back to the ordering of the original list  
+/// example to illustrate: 
+///     correctOrderingOfList [a; b; c; d; e] [c; d; b] --> [a; c; d; b; e]
+///     correctOrderingOfList [a; b; c; d; e] [e; b; d] --> [a; e; b; d; c]
+/// HLP23: AUTHOR Jones
+let correctOrderingOfList (originalList: string list) (correctOrderList: string list): string list = 
+    let wrongPorts = List.except correctOrderList originalList 
+    let rec assembleList wrongPortList correctOrderList index acc = 
+        match wrongPortList with
+            |a::tail -> if originalList[index] = a then assembleList tail correctOrderList (index+1) (acc @ [a])
+                        else acc @ correctOrderList @ wrongPortList
+            | _ -> acc @ correctOrderList
+    assembleList wrongPorts correctOrderList 0 []
