@@ -121,10 +121,27 @@ let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list =
 /// This uses the getPortLocation from the Symbol module and applies it to the
 /// list of port ids located on the right side of the module
 /// HLP23: AUTHOR Jones
-let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list= 
-    symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
-    |> Option.defaultValue [] // extract list from option
-    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
+let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
+    symbol.PortMaps.Order.TryFind Right
+    |> Option.defaultValue [] 
+    |> List.map (Symbol.getPortLocation None model) 
+    
+
+// Find the orientation of a segment given its index
+///HLP23: AUTHOR Sougioultzoglou
+let findSegmentOrientation (wire: Wire) (segmentIndex: int)
+    : Orientation =
+    match segmentIndex % 2 with
+    | 1 when wire.InitialOrientation = Vertical -> Horizontal
+    | 1 -> Vertical
+    | _ -> wire.InitialOrientation
+
+// Find the index of the middle segment of a wire
+///HLP23: AUTHOR Sougioultzoglou
+let findMiddleSegmentIndex (wire: Wire) = 
+    match wire.Segments.Length with
+    | 9 -> 4
+    | _ -> 3
 
 /// sort 2 symbols with respect to their X position
 /// the left most symbol will be the first element in the return tuple
