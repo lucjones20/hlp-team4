@@ -102,3 +102,104 @@ let updateModelWires
     |> Optic.map wires_ (fun wireMap  ->
         (wireMap,wiresToAdd)
         ||> List.fold (fun wireMap wireToAdd -> Map.add wireToAdd.WId wireToAdd wireMap))
+
+
+
+/// Find the Y position of input ports for a given symbol
+/// Function takes in a SymbolT model and a symbol
+/// This uses the getPortLocation from the Symbol module and applies it to the
+/// list of port ids located on the left side of the module
+/// HLP23: AUTHOR Jones
+let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list = 
+    symbol.PortMaps.Order.TryFind Left // try to get list of port ids of the symbol
+    |> Option.defaultValue [] // extract the list from option
+    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto the list of port ids
+
+
+/// Find the Y position of output ports of a given symbol
+/// Function takes in a SymbolT model and a symbol
+/// This uses the getPortLocation from the Symbol module and applies it to the
+/// list of port ids located on the right side of the module
+/// HLP23: AUTHOR Jones
+let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
+    symbol.PortMaps.Order.TryFind Right
+    |> Option.defaultValue [] 
+    |> List.map (Symbol.getPortLocation None model) 
+    
+
+// Find the orientation of a segment given its index
+///HLP23: AUTHOR Sougioultzoglou
+let findSegmentOrientation (wire: Wire) (segmentIndex: int)
+    : Orientation =
+    match segmentIndex % 2 with
+    | 1 when wire.InitialOrientation = Vertical -> Horizontal
+    | 1 -> Vertical
+    | _ -> wire.InitialOrientation
+
+// Find the index of the middle segment of a wire
+///HLP23: AUTHOR Sougioultzoglou
+let findMiddleSegmentIndex (wire: Wire) = 
+    match wire.Segments.Length with
+    | 9 -> 4
+    | _ -> 3
+
+let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list= 
+    symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
+    |> Option.defaultValue [] // extract list from option
+    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
+
+/// sort 2 symbols with respect to their X position
+/// the left most symbol will be the first element in the return tuple
+/// HLP23: AUTHOR Jones
+let sortSymbolsLeftToRight (s1: Symbol) (s2: Symbol): Symbol * Symbol= 
+    if (toX s1.Pos < toX s2.Pos) then s1, s2
+    else s2, s1
+
+/// returns a map of the wires connected from s1 to s2
+/// HLP23: AUTHOR Jones
+let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): Map<ConnectionId, Wire> = 
+    let matchInputOutputPorts key value : bool= 
+        ((s1.Component.OutputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
+        && ( s2.Component.InputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.InputPort))) // check that one of the right symbol's input ports is the wire's input port
+    wModel.Wires
+    |> Map.filter matchInputOutputPorts
+
+
+/// lenses used to edit symbols 
+/// HLP23: should be placed in DrawModelType and CommonTypes
+/// HLP23: AUTHOR Jones
+let pos_: Lens<Symbol,XYPos> = Lens.create (fun a -> a.Pos) (fun s a -> {a with Pos = s}) // change Pos of Symbol
+
+let x_: Lens<XYPos,float>= Lens.create (fun a -> a.X) (fun s a -> {a with X = s}) // change Y of XYPos
+
+let y_: Lens<XYPos,float> = Lens.create (fun a -> a.Y) (fun s a -> {a with Y = s}) // change X of XYPos
+
+let labelBoundingBox_: Lens<Symbol, BoundingBox> = // change LabelBoundingBox of Symbol
+    Lens.create (fun a -> a.LabelBoundingBox) (fun s a -> {a with LabelBoundingBox = s}) 
+
+let topLeft_: Lens<BoundingBox, XYPos> = Lens.create (fun a -> a.TopLeft) (fun s a -> {a with TopLeft = s}) // change TopLeft of LabelBoundingBox
+
+/// this functions takes two lists: the first one is the original list where a sublist is ordered wrong and the second
+/// is the correct ordering of that sublist 
+/// this function will return a list starting with the order of the original list and once it hits an element in the sublist
+/// the return list's order will be the desired order of the sublist (note that the elements in the sublist are now all grouped up
+/// in the return list, which is not necessarily the case in the original list)
+/// if there are any elements remaining from the original list not yet added to the return list, the order of the return list will
+/// go back to the ordering of the original list  
+/// example to illustrate: 
+///     correctOrderingOfList [a; b; c; d; e] [c; d; b] --> [a; c; d; b; e]
+///     correctOrderingOfList [a; b; c; d; e] [e; b; d] --> [a; e; b; d; c]
+/// HLP23: AUTHOR Jones
+let correctOrderingOfList (originalList: string list) (correctOrderList: string list): string list = 
+    let wrongPorts = List.except correctOrderList originalList 
+    let rec assembleList wrongPortList correctOrderList index acc = 
+        match wrongPortList with
+            |a::tail -> if originalList[index] = a then assembleList tail correctOrderList (index+1) (acc @ [a])
+                        else acc @ correctOrderList @ wrongPortList
+            | _ -> acc @ correctOrderList
+    assembleList wrongPorts correctOrderList 0 []
+
