@@ -119,3 +119,20 @@ let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol) =
     symbol.PortMaps.Order.TryFind Right
     |> Option.defaultValue [] 
     |> List.map (Symbol.getPortLocation None model) 
+
+
+// Find the orientation of a segment given its index
+///HLP23: AUTHOR Sougioultzoglou
+let findSegmentOrientation (wire: Wire) (segmentIndex: int)
+    : Orientation =
+    match segmentIndex % 2 with
+    | 1 when wire.InitialOrientation = Vertical -> Horizontal
+    | 1 -> Vertical
+    | _ -> wire.InitialOrientation
+
+// Find the index of the middle segment of a wire
+///HLP23: AUTHOR Sougioultzoglou
+let findMiddleSegmentIndex (wire: Wire) = 
+    match wire.Segments.Length with
+    | 9 -> 4
+    | _ -> 3
