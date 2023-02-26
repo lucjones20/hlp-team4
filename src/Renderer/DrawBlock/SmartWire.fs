@@ -28,30 +28,30 @@ open Operators
 
 /// Function to determine if a segment is intersecting a given Symbol in any way.
 /// It returns an Orientation option. The intersection can be Horizontal, Vertical or None.
-//let segOverSymbol (symbol: Symbol) (i: int) (segment: Segment): Orientation option =
-//    let startPos, endPos = getAbsoluteSegmentPos 
-//    let orientation = getSegmentOrientation startPos endPos
-//    let bBox = getSymbolBoundingBox symbol
+let segOverSymbol (symbol: Symbol) (i: int) (wire: Wire): Orientation option =
+    let startPos, endPos = getAbsoluteSegmentPos wire i
+    let orientation = getSegmentOrientation startPos endPos
+    let bBox = getSymbolBoundingBox symbol
 
-//    /// Function to determine if a point is within a Bounding Box.
-//    /// It will return True if the point is within the box, False otherwise.
-//    let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
-//        let horizontally = point.X > bBox.TopLeft.X && point.X < bBox.TopLeft.X + bBox.W
-//        let vertically = point.Y > bBox.TopLeft.Y && point.Y < bBox.TopLeft.Y - bBox.H
+    /// Function to determine if a point is within a Bounding Box.
+    /// It will return True if the point is within the box, False otherwise.
+    let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
+        let horizontally = point.X > bBox.TopLeft.X && point.X < bBox.TopLeft.X + bBox.W
+        let vertically = point.Y > bBox.TopLeft.Y && point.Y < bBox.TopLeft.Y - bBox.H
     
-//        horizontally && vertically
+        horizontally && vertically
 
-//    /// Function to determine if and how a segment crosses a symbol from end to end.
-//    /// This means that the edges of the segment are outside of the Symbol Bounding Box.
-//    let crossesBBox (startPos: XYPos) (endPos: XYPos) (bBox: BoundingBox): bool =
-//        let horizontally = (startPos.X < bBox.TopLeft.X) && (endPos.X > bBox.TopLeft.X + bBox.W) && (startPos.Y > bBox.TopLeft.Y) && (startPos.Y < bBox.TopLeft.Y + bBox.H)
-//        let vertically = (startPos.Y < bBox.TopLeft.Y) && (endPos.Y > bBox.TopLeft.Y + bBox.H) && (startPos.X > bBox.TopLeft.X) && (startPos.X < bBox.TopLeft.X + bBox.W)
+    /// Function to determine if and how a segment crosses a symbol from end to end.
+    /// This means that the edges of the segment are outside of the Symbol Bounding Box.
+    let crossesBBox (startPos: XYPos) (endPos: XYPos) (bBox: BoundingBox): bool =
+        let horizontally = (startPos.X < bBox.TopLeft.X) && (endPos.X > bBox.TopLeft.X + bBox.W) && (startPos.Y > bBox.TopLeft.Y) && (startPos.Y < bBox.TopLeft.Y + bBox.H)
+        let vertically = (startPos.Y < bBox.TopLeft.Y) && (endPos.Y > bBox.TopLeft.Y + bBox.H) && (startPos.X > bBox.TopLeft.X) && (startPos.X < bBox.TopLeft.X + bBox.W)
     
-//        horizontally || vertically
+        horizontally || vertically
 
-//    match pointInBBox startPos bBox || pointInBBox endPos bBox || crossesBBox startPos endPos bBox with
-//        | true -> Some orientation
-//        | false -> None 
+    match pointInBBox startPos bBox || pointInBBox endPos bBox || crossesBBox startPos endPos bBox with
+        | true -> Some orientation
+        | false -> None 
     
 
 /// Fuction to detect if a wire has a segment that is overlapping with a Symbol.
@@ -74,7 +74,6 @@ let smartAutoroute (model: Model) (wire: Wire): Wire =
     //let removeFstLast list =
     //    list |> List.tail |> List.rev |> List.tail |> List.rev
     //let mid_segments = removeFstLast wire.Segments
-
     
 
     let checkWireSegs (Id: ComponentId) (symbol: Symbol) =
@@ -83,6 +82,8 @@ let smartAutoroute (model: Model) (wire: Wire): Wire =
             let bBox = getSymbolBoundingBox symbol
 
             let intersectAmount = segmentIntersectsBoundingBox bBox startPos endPos
+
+            let intersect = segOverSymbol symbol i wire
 
             match intersectAmount with
             | Some num ->
