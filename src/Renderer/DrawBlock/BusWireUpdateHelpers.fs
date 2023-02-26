@@ -10,7 +10,6 @@ open BusWire
 open Optics
 open Operators
 
-
 //-------------------------segmentIntersectsBoundingBox---------------------------------//
 
 /// Type used to simplify BoundingBox intersection calculations
