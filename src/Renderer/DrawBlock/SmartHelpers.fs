@@ -121,10 +121,10 @@ let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list =
 /// This uses the getPortLocation from the Symbol module and applies it to the
 /// list of port ids located on the right side of the module
 /// HLP23: AUTHOR Jones
-let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol) = 
-    symbol.PortMaps.Order.TryFind Right
-    |> Option.defaultValue [] 
-    |> List.map (Symbol.getPortLocation None model) 
+let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list= 
+    symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
+    |> Option.defaultValue [] // extract list from option
+    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
     
 
 // Find the orientation of a segment given its index
@@ -136,12 +136,29 @@ let findSegmentOrientation (wire: Wire) (segmentIndex: int)
     | 1 -> Vertical
     | _ -> wire.InitialOrientation
 
-// Find the index of the middle segment of a wire
-///HLP23: AUTHOR Sougioultzoglou
-let findMiddleSegmentIndex (wire: Wire) = 
-    match wire.Segments.Length with
-    | 9 -> 4
-    | _ -> 3
+/// Find the Indexes of manually routed segments in a wire
+/// HLP23: AUTHOR Sougioultzoglou
+let findManualSegmentIndexes (wire: Wire) 
+    :int list =
+    wire.Segments
+    |> List.fold (fun manualIndexes  seg ->
+        if seg.Mode = Manual then seg.Index::manualIndexes else manualIndexes) []
+
+
+/// Find the indexes of wire segment parallel to a given orientation
+/// Doesn't include nubs, 0 length segments and segments that are attached to 
+/// and ligned with the the input and output port
+/// HLP23: AUTHOR Sougioultzoglou
+let findParallelSegmentIndexes (wire: Wire) (orientation: Orientation)=
+    let zeroLengthSegsRemoved = 
+       wire.Segments
+    |> List.filter (fun seg -> seg.Length <> 0)
+
+    zeroLengthSegsRemoved[2..List.length zeroLengthSegsRemoved - 3]
+    |> List.fold (fun indexes seg ->
+        if findSegmentOrientation wire seg.Index = orientation
+        then seg.Index::indexes
+        else  indexes) []
 
 /// sort 2 symbols with respect to their X position
 /// the left most symbol will be the first element in the return tuple
