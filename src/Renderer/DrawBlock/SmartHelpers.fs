@@ -166,7 +166,8 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
 
 
 /// lenses used to edit symbols 
-/// HLP23: should be placed in DrawModelType and CommonTypes
+/// HLP23: should be placed in DrawModelType and CommonTypes (I didn't want to change too many files so they are 
+/// here for now)
 /// HLP23: AUTHOR Jones
 let pos_: Lens<Symbol,XYPos> = Lens.create (fun a -> a.Pos) (fun s a -> {a with Pos = s}) // change Pos of Symbol
 
@@ -199,33 +200,11 @@ let correctOrderingOfList (originalList: string list) (correctOrderList: string 
             | _ -> acc @ correctOrderList
     assembleList wrongPorts correctOrderList 0 []
 
+/// this function checks to see if all the wires between 2 symbols have an initial orientation of Horizintal
+/// note: the ordering of the symbols matter, s1 needs to have the output ports and s2 needs to have the input ports
+/// HLP23: AUTHOR Jones
 let hasHorizontalWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): bool = 
     let selectedWires = getSelectedSymbolWires wModel s1 s2
     (false, (Map.values selectedWires
     |> Seq.map (fun x -> x.InitialOrientation = Horizontal)))
     ||> Seq.fold (||)
-
-// sortSymbolByOutputToInput
-let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): Symbol * Symbol = 
-    let selectedWires = getSelectedSymbolWires wModel s1 s2
-    selectedWires
-    |> Map.values
-    |> Seq.head
-    |> fun x -> (x.OutputPort, x.InputPort)
-    |> fun (x,y) -> (Map.tryFind (string x) s1.PortMaps.Orientation, Map.tryFind (string y) s1.PortMaps.Orientation)
-    |> function 
-        |(Some(_), Some(_)) -> (s1,s2)
-        | _ -> (s2, s1)
-
-
-type ResizeScenario = |Horizontal | Vertical | Mixed
-
-
-// change name
-let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
-    wires
-    |> Map.values
-    |> Seq.map (fun x -> (x.OutputPort, x.InputPort))
-    |> Seq.map (fun (op,ip) -> (Map.find (string op) referenceSymbol.PortMaps.Orientation), (Map.find (string ip) symbolToResize.PortMaps.Orientation))
-    |> Seq.map (fun (e1, e2) -> e1 = e2)
-    |> Seq.reduce(||)
