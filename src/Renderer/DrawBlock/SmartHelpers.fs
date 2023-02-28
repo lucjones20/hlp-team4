@@ -6,6 +6,7 @@ open DrawModelType.SymbolT
 open DrawModelType.BusWireT
 open BusWire
 open BusWireUpdateHelpers
+open Symbol
 
 open Optics
 open Operators
@@ -239,7 +240,11 @@ let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol)
         |(Some(_), Some(_)) -> (s1,s2)
         | _ -> (s2, s1)
 
+
+//type ResizeScenario = |Horizontal | Vertical | Mixed
+
 //type ResizeScenario = |HorizontalResize | Verticalresize | MixedResize
+
 
 // change name
 let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
@@ -249,3 +254,42 @@ let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (sy
     |> Seq.map (fun (op,ip) -> (Map.find (string op) referenceSymbol.PortMaps.Orientation), (Map.find (string ip) symbolToResize.PortMaps.Orientation))
     |> Seq.map (fun (e1, e2) -> e1 = e2)
     |> Seq.reduce(||)
+
+
+/// Function to determine if a point is within a Bounding Box.
+/// It will return True if the point is within the box, False otherwise.
+/// HLP 23: Author Gkamaletsos
+let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
+    printfn "Boundingbox width: %A %A %A" bBox.W bBox.TopLeft point
+    let horizontally = point.X > bBox.TopLeft.X && point.X < bBox.TopLeft.X + bBox.W
+    let vertically = point.Y > bBox.TopLeft.Y && point.Y < bBox.TopLeft.Y + bBox.H
+    if horizontally = true
+    then printfn "vertical point in bBox detected"
+
+    horizontally && vertically
+
+
+/// Function to determine if and how a segment crosses a symbol from end to end.
+/// This means that the edges of the segment are outside of the Symbol Bounding Box.
+/// HLP 23: Author Gkamaletsos
+let crossesBBox (startPos: XYPos) (endPos: XYPos) (bBox: BoundingBox): bool =
+    let horizontally = (startPos.X < bBox.TopLeft.X) && (endPos.X > bBox.TopLeft.X + bBox.W) && (startPos.Y > bBox.TopLeft.Y) && (startPos.Y < bBox.TopLeft.Y + bBox.H)
+    let vertically = (startPos.Y < bBox.TopLeft.Y) && (endPos.Y > bBox.TopLeft.Y + bBox.H) && (startPos.X > bBox.TopLeft.X) && (startPos.X < bBox.TopLeft.X + bBox.W)
+
+    horizontally || vertically
+
+
+/// Function to determine if a segment is intersecting a given Symbol in any way.
+/// It returns an Orientation option. The intersection can be Horizontal, Vertical or None.
+/// The function takes the whole wire and the index of the segment as input.
+/// This is to accomodate the use of getAbsoluteSegmentPos from BusWireUpdateHelpers.
+/// HLP 23: Author Gkamaletsos
+let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option =
+    let startPos, endPos = getAbsoluteSegmentPos wire index
+    let orientation = getSegmentOrientation startPos endPos
+    let bBox = getSymbolBoundingBox symbol
+
+    match pointInBBox startPos bBox || pointInBBox endPos bBox || crossesBBox startPos endPos bBox with
+        | true ->  printfn "startPos in bBox: %A, endPos in bBox: %A" (pointInBBox startPos bBox) (pointInBBox endPos bBox)
+                   Some orientation
+        | false -> None 
