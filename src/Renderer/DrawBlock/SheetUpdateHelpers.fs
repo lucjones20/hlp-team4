@@ -650,5 +650,35 @@ let rec getChannel (bb1:BoundingBox) (bb2:BoundingBox) : BoundingBox option =
             let topLeft = {Y=union.TopLeft.Y; X=x2}
             Some {TopLeft = topLeft; H = union.H; W = x2 - x1}
 
+
+let rec getVerticalChannel (bb1:BoundingBox) (bb2:BoundingBox) : BoundingBox option =
+    if bb1.TopLeft.X > bb2.TopLeft.X then
+        getVerticalChannel bb2 bb1
+    else
+        if  bb1.TopLeft.X + bb1.W > bb2.TopLeft.X then
+            None // horizontal intersection
+        elif bb1.TopLeft.Y > bb2.TopLeft.Y + bb2.H || bb1.TopLeft.Y + bb1.H < bb2.TopLeft.Y then
+            None // symbols are not aligned vertically
+        else
+            let x1, x2 = bb1.TopLeft.X + bb1.W, bb2.TopLeft.X // horizontal channel
+            let union = boxUnion bb1 bb2
+            let topLeft = {Y=union.TopLeft.Y; X=x1}
+            Some {TopLeft = topLeft; H = union.H; W = x2 - x1}
+
+
+let rec getHorizontalChannel (bb1:BoundingBox) (bb2:BoundingBox) : BoundingBox option =
+    if bb1.TopLeft.Y > bb2.TopLeft.Y then
+        getHorizontalChannel bb2 bb1
+    else
+        if  bb1.TopLeft.Y + bb1.H > bb2.TopLeft.Y then
+            None // horizontal intersection
+        elif bb1.TopLeft.X > bb2.TopLeft.X + bb2.W || bb1.TopLeft.X + bb1.W < bb2.TopLeft.X then
+            None // symbols are not aligned vertically
+        else
+            let y1, y2 = bb1.TopLeft.Y + bb1.H, bb2.TopLeft.Y // horizontal channel
+            let union = boxUnion bb1 bb2
+            let topLeft = {X=union.TopLeft.X; Y=y1}
+            Some {TopLeft = topLeft; W = union.W; H = y2 - y1}
+
         
 

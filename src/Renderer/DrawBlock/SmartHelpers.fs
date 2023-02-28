@@ -125,9 +125,9 @@ let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list=
     symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
     |> Option.defaultValue [] // extract list from option
     |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
-    
+ 
 
-// Find the orientation of a segment given its index
+// Find the orientation of a wire segment given its index
 ///HLP23: AUTHOR Sougioultzoglou
 let findSegmentOrientation (wire: Wire) (segmentIndex: int)
     : Orientation =
@@ -145,9 +145,10 @@ let findManualSegmentIndexes (wire: Wire)
         if seg.Mode = Manual then seg.Index::manualIndexes else manualIndexes) []
 
 
-/// Find the indexes of wire segment parallel to a given orientation
+/// Find the indexes of a wires segments that are parallel to a given orientation and
+/// have some slack room to be moved in the direction perpendicular to the orientation
 /// Doesn't include nubs, 0 length segments and segments that are attached to 
-/// and ligned with the the input and output port
+/// and ligned with the the input and output ports (since they can't be elegantly moved)
 /// HLP23: AUTHOR Sougioultzoglou
 let findParallelSegmentIndexes (wire: Wire) (orientation: Orientation)=
     let zeroLengthSegsRemoved = 
@@ -235,8 +236,7 @@ let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol)
         | _ -> (s2, s1)
 
 
-type ResizeScenario = |Horizontal | Vertical | Mixed
-
+//type ResizeScenario = |HorizontalResize | Verticalresize | MixedResize
 
 // change name
 let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
