@@ -235,7 +235,7 @@ let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol)
         | _ -> (s2, s1)
 
 
-type ResizeScenario = |Horizontal | Vertical | Mixed
+//type ResizeScenario = |Horizontal | Vertical | Mixed
 
 
 // change name
