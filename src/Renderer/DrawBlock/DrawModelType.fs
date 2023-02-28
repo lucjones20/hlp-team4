@@ -311,7 +311,7 @@ module BusWireT =
         }
 
     let segments_ = Lens.create (fun m -> m.Segments) (fun s m -> {m with Segments = s})
-   
+    
     
     /// Defines offsets used to render wire width text
     type TextOffset =

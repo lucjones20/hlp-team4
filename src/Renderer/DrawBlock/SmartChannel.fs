@@ -52,6 +52,134 @@ type ChannelWire = {
     ParallelSegOrientation: Orientation
 }
 
+/// Determine if a wire is part of the channel and return the start and end positions of its parallel (towards the channel orientation) segment in the case that it is.
+/// The conditions for a wire to be considered part of the channel are:
+///  -Its parallel segment must intersect the channel
+///  -Either one of its edges must be located outside of the channel (i.e it must not be bounded by the channel)
+/// Wires that will be passed in this function have already been filtered and thus only have one parallel segment (excluding 0 length segments and nubs)
+let findParallelSegEdges
+    (wire : Wire)
+    (channel : BoundingBox)
+    (parallelSegIndex: int)
+        :(XYPos * XYPos) option =
+    let pointInsideBoundingBox (point: XYPos) (bb: BoundingBox)
+        :bool =
+        let horizontallyBound = point.X < bb.TopLeft.X + bb.W && point.X > bb.TopLeft.X
+        let verticallyBound = point.Y < bb.TopLeft.Y + bb.H && point.Y > bb.TopLeft.Y
+        horizontallyBound && verticallyBound
+    /// Folder fuction to be passed into foldOverSegs
+    /// The state it passes through foldOverSegs collects information regarding whether the wire should be included in the channel
+    let collectWireInfo (segStart: XYPos) (segEnd: XYPos)
+        (state: {|WireStartPos: PosRelativeToChannel; parallelSegEdges: (XYPos * XYPos) option; WireEndPos: PosRelativeToChannel; CurrentIndex: int|})
+        (seg: Segment) = 
+        if state.CurrentIndex = 0
+        then
+            match pointInsideBoundingBox segStart channel with
+            | true ->
+                {|state with WireStartPos = Inside; CurrentIndex = 1|}
+            | _ ->
+                {|state with WireStartPos = Outside; CurrentIndex = 1|}
+        elif state.CurrentIndex = parallelSegIndex
+        then
+            let distance: float option = segmentIntersectsBoundingBox channel segStart segEnd
+            match distance with
+            | Some _ ->
+                {|state with parallelSegEdges = Some (segStart, segEnd); CurrentIndex = state.CurrentIndex + 1|}
+            | None  ->
+                {|state with parallelSegEdges = None; CurrentIndex = state.CurrentIndex + 1|}
+        elif state.CurrentIndex = List.length wire.Segments - 1
+        then
+            match pointInsideBoundingBox segEnd channel with 
+            | true ->
+                {|state with WireEndPos = Inside; CurrentIndex = state.CurrentIndex + 1|} 
+            | _ ->
+                {|state with WireEndPos = Outside; CurrentIndex = state.CurrentIndex + 1|} 
+        else
+            {|state with CurrentIndex = state.CurrentIndex + 1|}
+
+    let initialState = {|WireStartPos = Outside; parallelSegEdges = None; WireEndPos = Outside; CurrentIndex = 0|}
+    let foldResult = foldOverSegs collectWireInfo initialState wire
+    match foldResult.WireStartPos, foldResult.WireEndPos, foldResult.parallelSegEdges with
+    | Inside, Inside, _ -> None
+    | _, _, Some edges -> Some edges
+    | _ -> None
+
+/// Takes in the wires that have been assigned to the channel, and creates sub channels based on which
+/// wires have overlapping parallel segments
+/// Wires will then be rearranged seperatly for each sub channel which will result in better spacing between wires
+let formSubChannels
+    (channelWires: ChannelWire list)
+    (channel: BoundingBox)
+    (channelOrientation: Orientation)
+        :(BoundingBox * ChannelWire list) list =
+    /// Find the range covered by the parallel segment of a channel wire
+    /// and return it in the form of a start and end position pair
+    let findParallelSegRange (wire: ChannelWire) =
+        let parallelSegLength = wire.Wire.Segments.[wire.ParallelSegIndex].Length
+        match parallelSegLength > 0, channelOrientation with
+        | true, Vertical ->
+            {|Start = wire.ParallelSegStartPos.Y; End = wire.ParallelSegStartPos.Y + parallelSegLength|}
+        | true, _ ->
+            {|Start = wire.ParallelSegStartPos.X; End = wire.ParallelSegStartPos.X + parallelSegLength|}
+        | _, Vertical->
+            {|Start = wire.ParallelSegStartPos.Y + parallelSegLength; End = wire.ParallelSegStartPos.Y|}
+        | _ ->
+            {|Start = wire.ParallelSegStartPos.X + parallelSegLength; End = wire.ParallelSegStartPos.X|}
+
+    /// Fold over the sorted (based on start position) list of ranges and return a list of ranges
+    /// which is formed by superimposing the input ranges
+    /// The ouput ranges represent the width/height (based on channel orientation) of the sub channel boundibg boxes
+    let findSubChannelRanges (sortedRanges: {|Start: float; End: float|} list) =
+        let superimposeRanges (state: {|currRange: {|Start: float; End: float|} ; superimposedRanges: {|Start: float; End: float|} list|})
+            (range: {|Start: float; End: float|}) = 
+            if state.currRange.End >= range.Start
+            then
+                let currRange' = {|Start = state.currRange.Start; End = max (state.currRange.End) range.End|}
+                {|state with currRange = currRange'|}
+            else
+                {|currRange = range; superimposedRanges = state.currRange::state.superimposedRanges|}
+        let foldResult = 
+           sortedRanges
+        |> List.tail
+        |> List.fold superimposeRanges {|currRange = List.head sortedRanges; superimposedRanges = []|}
+        
+        (foldResult.currRange)::(foldResult.superimposedRanges)
+
+    /// Allocate channel wires to a range (i.e sub channel) and return the
+    /// sub channel BoundingBox which corresponds to that range alongisde a list with the allocated wires
+    let allocateWires (channelWires: ChannelWire list) (range: {|Start: float; End: float|})
+        :BoundingBox * ChannelWire list =
+        let allocatedWires = 
+           ([], channelWires)
+        ||> List.fold (fun (allocatedWires: ChannelWire list) (wire: ChannelWire) ->
+                  match channelOrientation with
+                  | Vertical ->
+                        if wire.ParallelSegStartPos.Y <= range.End &&  wire.ParallelSegStartPos.Y >= range.Start
+                        then wire::allocatedWires
+                        else allocatedWires
+                  | _ ->
+                        if wire.ParallelSegStartPos.X <= range.End &&  wire.ParallelSegStartPos.X >= range.Start
+                        then wire::allocatedWires
+                        else allocatedWires)
+
+        let (subChannel: BoundingBox) =
+            match channelOrientation with
+            | Vertical ->
+                let tl = {X = channel.TopLeft.X; Y = max channel.TopLeft.Y range.Start}
+                {TopLeft = tl; W = channel.W; H = min range.End (channel.TopLeft.Y + channel.H) - tl.Y}
+            | _ ->
+                let tl = {X = max channel.TopLeft.X range.Start; Y = channel.TopLeft.Y }
+                {TopLeft = tl; W = min range.End (channel.TopLeft.X + channel.W) - tl.X; H = channel.H}
+
+        subChannel , allocatedWires
+                            
+    channelWires
+    |> List.map findParallelSegRange
+    |> List.sortBy (fun range -> range.Start)
+    |> findSubChannelRanges
+    |> List.fold (fun subChannels range-> (allocateWires channelWires range)::subChannels) []
+
+
 /// Takes in a subChannel (determnied in the smartChannelRoute main function) along with the channel wires which intersect this
 /// subChannel and spaces them out nicely, so that the wires are clearly visible and intersections are avoided (to an extent)
 let routeSubChannelWires
@@ -132,139 +260,6 @@ let routeSubChannelWires
 
     updateModelWires model updatedChannelWires
 
-
-/// Takes in the wires that have been assigned to the channel, and creates sub channels based on which
-/// wires have overlapping parallel segments
-/// Wires will then be rearranges seperatly for each sub channel which will result to better spacing between wires
-let formSubChannels
-    (channelWires: ChannelWire list)
-    (channel: BoundingBox)
-    (channelOrientation: Orientation)
-        :(BoundingBox * ChannelWire list) list =
-    /// Find the range covered by the parallel segment of a channel wire
-    /// and return it in the form of a start and end position pair
-    let findParallelSegRange (wire: ChannelWire) =
-        let parallelSegLength = wire.Wire.Segments.[wire.ParallelSegIndex].Length
-        match parallelSegLength > 0, channelOrientation with
-        | true, Vertical ->
-            {|Start = wire.ParallelSegStartPos.Y; End = wire.ParallelSegStartPos.Y + parallelSegLength|}
-        | true, _ ->
-            {|Start = wire.ParallelSegStartPos.X; End = wire.ParallelSegStartPos.X + parallelSegLength|}
-        | _, Vertical->
-            {|Start = wire.ParallelSegStartPos.Y + parallelSegLength; End = wire.ParallelSegStartPos.Y|}
-        | _ ->
-            {|Start = wire.ParallelSegStartPos.X + parallelSegLength; End = wire.ParallelSegStartPos.X|}
-
-    /// Fold over the sorted (based on start position) list of ranges and return a list of ranges
-    /// which is formed by superimposing the input ranges
-    /// The ouput ranges represent the width/height (based on channel orientation) of the sub channel boundibg boxes
-    let findSubChannelRanges (sortedRanges: {|Start: float; End: float|} list) =
-        let superimposeRanges (state: {|currRange: {|Start: float; End: float|} ; superimposedRanges: {|Start: float; End: float|} list|})
-            (range: {|Start: float; End: float|}) = 
-            if state.currRange.End >= range.Start
-            then
-                let currRange' = {|Start = state.currRange.Start; End = max (state.currRange.End) range.End|}
-                {|state with currRange = currRange'|}
-            else
-                {|currRange = range; superimposedRanges = state.currRange::state.superimposedRanges|}
-        let foldResult = 
-           sortedRanges
-        |> List.tail
-        |> List.fold superimposeRanges {|currRange = List.head sortedRanges; superimposedRanges = []|}
-        
-        (foldResult.currRange)::(foldResult.superimposedRanges)
-
-    /// Allocate channel wires to a range (i.e sub channel) and return the
-    /// sub channel BoundingBox which corresponds to that range alongisde a list of the allocated wires
-    let allocateWires (channelWires: ChannelWire list) (range: {|Start: float; End: float|})
-        :BoundingBox * ChannelWire list =
-        let allocatedWires = 
-           ([], channelWires)
-        ||> List.fold (fun (allocatedWires: ChannelWire list) (wire: ChannelWire) ->
-                  match channelOrientation with
-                  | Vertical ->
-                        if wire.ParallelSegStartPos.Y <= range.End &&  wire.ParallelSegStartPos.Y >= range.Start
-                        then wire::allocatedWires
-                        else allocatedWires
-                  | _ ->
-                        if wire.ParallelSegStartPos.X <= range.End &&  wire.ParallelSegStartPos.X >= range.Start
-                        then wire::allocatedWires
-                        else allocatedWires)
-
-        let (subChannel: BoundingBox) =
-            match channelOrientation with
-            | Vertical ->
-                let tl = {X = channel.TopLeft.X; Y = max channel.TopLeft.Y range.Start}
-                {TopLeft = tl; W = channel.W; H = min range.End (channel.TopLeft.Y + channel.H) - tl.Y}
-            | _ ->
-                let tl = {X = max channel.TopLeft.X range.Start; Y = channel.TopLeft.Y }
-                {TopLeft = tl; W = min range.End (channel.TopLeft.X + channel.W) - tl.X; H = channel.H}
-
-        subChannel , allocatedWires
-                                
-    //let pipePrint (x: {|Start: float; End: float|} list) =
-    //    x
-    //    |> List.iter (fun x -> printfn $"{x.Start}, {x.End}")
-    //    printfn "############################"
-    //    x
-
-    channelWires
-    |> List.map findParallelSegRange
-    |> List.sortBy (fun range -> range.Start)
-    |> findSubChannelRanges
-    |> List.fold (fun subChannels range-> (allocateWires channelWires range)::subChannels) []
-
-/// Determine if a wire is part of the channel and return the start and end positions of its parallel (towards the channel orientation) segment in the case that it is
-/// The conditions for a wire to be considered part of the channel are:
-///  -Its parallel segment must intersect the channel
-///  -Either one of its edges must be located outside of the channel (i.e it must not be bounded by the channel)
-let findParallelSegEdges
-    (wire : Wire)
-    (channel : BoundingBox)
-    (parallelSegIndex: int)
-        :(XYPos * XYPos) option =
-    let pointInsideBoundingBox (point: XYPos) (bb: BoundingBox)
-        :bool =
-        let horizontallyBound = point.X < bb.TopLeft.X + bb.W && point.X > bb.TopLeft.X
-        let verticallyBound = point.Y < bb.TopLeft.Y + bb.H && point.Y > bb.TopLeft.Y
-        horizontallyBound && verticallyBound
-    /// Folder fuction to be passed into foldOverSegs
-    /// The state it passes through foldOverSegs collects information regarding whether the wire should be included in the channel
-    let collectWireInfo (segStart: XYPos) (segEnd: XYPos)
-        (state: {|WireStartPos: PosRelativeToChannel; parallelSegEdges: (XYPos * XYPos) option; WireEndPos: PosRelativeToChannel; CurrentIndex: int|})
-        (seg: Segment) = 
-        if state.CurrentIndex = 0
-        then
-            match pointInsideBoundingBox segStart channel with
-            | true ->
-                {|state with WireStartPos = Inside; CurrentIndex = 1|}
-            | _ ->
-                {|state with WireStartPos = Outside; CurrentIndex = 1|}
-        elif state.CurrentIndex = parallelSegIndex
-        then
-            let distance: float option = segmentIntersectsBoundingBox channel segStart segEnd
-            match distance with
-            | Some _ ->
-                {|state with parallelSegEdges = Some (segStart, segEnd); CurrentIndex = state.CurrentIndex + 1|}
-            | None  ->
-                {|state with parallelSegEdges = None; CurrentIndex = state.CurrentIndex + 1|}
-        elif state.CurrentIndex = List.length wire.Segments - 1
-        then
-            match pointInsideBoundingBox segEnd channel with 
-            | true ->
-                {|state with WireEndPos = Inside; CurrentIndex = state.CurrentIndex + 1|} 
-            | _ ->
-                {|state with WireEndPos = Outside; CurrentIndex = state.CurrentIndex + 1|} 
-        else
-            {|state with CurrentIndex = state.CurrentIndex + 1|}
-
-    let initialState = {|WireStartPos = Outside; parallelSegEdges = None; WireEndPos = Outside; CurrentIndex = 0|}
-    let foldResult = foldOverSegs collectWireInfo initialState wire
-    match foldResult.WireStartPos, foldResult.WireEndPos, foldResult.parallelSegEdges with
-    | Inside, Inside, _ -> None
-    | _, _, Some edges -> Some edges
-    | _ -> None
-
 /// This function is given a channel, (Vertical or Horizontal) and first identifies wires that 
 /// that should be rerouted, in order to make the channel clearer and cleaner.
 /// The conditions for a wire to be considered for rerouting are that it should firstly pass
@@ -272,9 +267,9 @@ let findParallelSegEdges
 /// and also have at least one edge originating from outsdie the channel. Both autorouted and manually routed wire and
 /// are considered
 /// The segment parallel to the channel is the one which will be moved to achieve this better spacing, and for this implementation
-/// only wires with one non zero length segment will be included.
+/// only wires with one non zero length parallel segment will be included.
 /// The idea behind the algorithm is to divide the channel into sub channels where the parallel segments of the previously selected wires
-/// overlap either horizontally or vertically (depending on channel orientation) and space out the wires nicely and evenly
+/// overlap either on the x or y direction (for horizontal and vertical channels respectively) and space out the wires nicely and evenly
 /// within each sub channel
 let smartChannelRoute 
     (channelOrientation: Orientation) 
@@ -291,7 +286,6 @@ let smartChannelRoute
             [{Wire = wire; ParallelSegIndex = parallelSegIndex; ParallelSegStartPos = fst edges; ParallelSegOrientation = findSegmentOrientation wire parallelSegIndex}]
         | None -> []
 
-    //printfn $"SmartChannel: channel {channelOrientation}:(%.1f{tl.X},%.1f{tl.Y}) W=%.1f{channel.W} H=%.1f{channel.H}"
     let channelWires =
        model.Wires
     |> Map.toList
