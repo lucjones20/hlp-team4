@@ -125,9 +125,9 @@ let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list=
     symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
     |> Option.defaultValue [] // extract list from option
     |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
-    
+ 
 
-// Find the orientation of a segment given its index
+// Find the orientation of a wire segment given its index
 ///HLP23: AUTHOR Sougioultzoglou
 let findSegmentOrientation (wire: Wire) (segmentIndex: int)
     : Orientation =
@@ -145,9 +145,10 @@ let findManualSegmentIndexes (wire: Wire)
         if seg.Mode = Manual then seg.Index::manualIndexes else manualIndexes) []
 
 
-/// Find the indexes of wire segment parallel to a given orientation
+/// Find the indexes of a wires segments that are parallel to a given orientation and
+/// have some slack room to be moved in the direction perpendicular to the orientation
 /// Doesn't include nubs, 0 length segments and segments that are attached to 
-/// and ligned with the the input and output port
+/// and ligned with the the input and output ports (since they can't be elegantly moved)
 /// HLP23: AUTHOR Sougioultzoglou
 let findParallelSegmentIndexes (wire: Wire) (orientation: Orientation)=
     let zeroLengthSegsRemoved = 
@@ -183,7 +184,8 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
 
 
 /// lenses used to edit symbols 
-/// HLP23: should be placed in DrawModelType and CommonTypes
+/// HLP23: should be placed in DrawModelType and CommonTypes (I didn't want to change too many files so they are 
+/// here for now)
 /// HLP23: AUTHOR Jones
 let pos_: Lens<Symbol,XYPos> = Lens.create (fun a -> a.Pos) (fun s a -> {a with Pos = s}) // change Pos of Symbol
 
@@ -216,6 +218,9 @@ let correctOrderingOfList (originalList: string list) (correctOrderList: string 
             | _ -> acc @ correctOrderList
     assembleList wrongPorts correctOrderList 0 []
 
+/// this function checks to see if all the wires between 2 symbols have an initial orientation of Horizintal
+/// note: the ordering of the symbols matter, s1 needs to have the output ports and s2 needs to have the input ports
+/// HLP23: AUTHOR Jones
 let hasHorizontalWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): bool = 
     let selectedWires = getSelectedSymbolWires wModel s1 s2
     (false, (Map.values selectedWires
@@ -234,9 +239,7 @@ let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol)
         |(Some(_), Some(_)) -> (s1,s2)
         | _ -> (s2, s1)
 
-
-type ResizeScenario = |Horizontal | Vertical | Mixed
-
+//type ResizeScenario = |HorizontalResize | Verticalresize | MixedResize
 
 // change name
 let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
