@@ -261,10 +261,10 @@ let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (sy
 /// HLP 23: Author Gkamaletsos
 let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
     //printfn "Boundingbox width: %A %A %A" bBox.W bBox.TopLeft point
-    let horizontally = point.X > bBox.TopLeft.X && point.X < bBox.TopLeft.X + bBox.W
-    let vertically = point.Y > bBox.TopLeft.Y && point.Y < bBox.TopLeft.Y + bBox.H
-    //if horizontally = true
-    //then printfn "vertical point in bBox detected"
+    let horizontally = point.X > bBox.TopLeft.X && point.X < (bBox.TopLeft.X + bBox.W)
+    let vertically = point.Y > bBox.TopLeft.Y && point.Y < (bBox.TopLeft.Y + bBox.H)
+    if (vertically=true) && (horizontally=true)
+    then printfn "point in bBox detected"
 
     horizontally && vertically
 
@@ -272,11 +272,17 @@ let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
 /// Function to determine if and how a segment crosses a symbol from end to end.
 /// This means that the edges of the segment are outside of the Symbol Bounding Box.
 /// HLP 23: Author Gkamaletsos
-let crossesBBox (startPos: XYPos) (endPos: XYPos) (bBox: BoundingBox): bool =
-    let horizontally = (startPos.X < bBox.TopLeft.X) && (endPos.X > bBox.TopLeft.X + bBox.W) && (startPos.Y > bBox.TopLeft.Y) && (startPos.Y < bBox.TopLeft.Y + bBox.H)
+let crossesBBox (startPos: XYPos) (endPos: XYPos) (bBox: BoundingBox): Orientation option =
+    let horizontally = (((startPos.X < bBox.TopLeft.X) && (endPos.X > bBox.TopLeft.X + bBox.W)) || ((endPos.X < bBox.TopLeft.X) && (startPos.X > bBox.TopLeft.X + bBox.W))) && (startPos.Y > bBox.TopLeft.Y) && (startPos.Y < bBox.TopLeft.Y + bBox.H)
     let vertically = (((startPos.Y < bBox.TopLeft.Y) && (endPos.Y > bBox.TopLeft.Y + bBox.H)) || ((endPos.Y < bBox.TopLeft.Y) && (startPos.Y > bBox.TopLeft.Y + bBox.H))) && (startPos.X > bBox.TopLeft.X) && (startPos.X < bBox.TopLeft.X + bBox.W)
+    if (vertically=true) || (horizontally=true)
+    then printfn "crossing detected"
 
-    horizontally || vertically
+    if horizontally
+    then Some Horizontal
+    elif vertically
+    then Some Vertical
+    else None
 
 
 /// Function to determine if a segment is intersecting a given Symbol in any way.
@@ -289,7 +295,6 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
     let orientation = getSegmentOrientation startPos endPos
     let bBox = getSymbolBoundingBox symbol
 
-    match pointInBBox startPos bBox || pointInBBox endPos bBox || crossesBBox startPos endPos bBox with
-        | true ->  //printfn "startPos in bBox: %A, endPos in bBox: %A" (pointInBBox startPos bBox) (pointInBBox endPos bBox)
-                   Some orientation
-        | false -> None 
+    match pointInBBox startPos bBox || pointInBBox endPos bBox with
+        | true  -> Some orientation
+        | false -> crossesBBox startPos endPos bBox
