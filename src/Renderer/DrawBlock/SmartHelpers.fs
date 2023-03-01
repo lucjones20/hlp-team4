@@ -128,7 +128,7 @@ let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list=
     |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
  
 
-// Find the orientation of a wire segment given its index
+/// Find the orientation of a wire segment given its index
 ///HLP23: AUTHOR Sougioultzoglou
 let findSegmentOrientation (wire: Wire) (segmentIndex: int)
     : Orientation =
