@@ -522,6 +522,8 @@ let mUpUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> = // mMsg is curr
             // legacy case due for removal?
             let newModel = fst({ model with Action = Idle}, wireCmd (BusWireT.SelectWires []))
             
+            // adding a function call to reSizeSymbol so that symbols are automatically resized when you click on any of
+            // the two symbols that are selected (alternative to the drag-to-resize symbol it's now click-to-resize)
             validateTwoSelectedSymbols newModel
             |> function 
                 | Some(s1, s2) -> 
