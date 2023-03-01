@@ -260,7 +260,6 @@ let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (sy
 /// It will return True if the point is within the box, False otherwise.
 /// HLP 23: Author Gkamaletsos
 let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
-    //printfn "Boundingbox width: %A %A %A" bBox.W bBox.TopLeft point
     let horizontally = point.X > bBox.TopLeft.X && point.X < (bBox.TopLeft.X + bBox.W)
     let vertically = point.Y > bBox.TopLeft.Y && point.Y < (bBox.TopLeft.Y + bBox.H)
     if (vertically=true) && (horizontally=true)
