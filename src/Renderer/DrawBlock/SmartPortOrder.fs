@@ -10,6 +10,8 @@ open Symbol
 open Optics
 open Operators
 
+/// HLP 23: Author Parry
+
 (* 
     HLP23: This module will normally be used exclusively by team member doing the "smart port reorder" 
     part of the individual coding. During group phase work how it is used is up to the
