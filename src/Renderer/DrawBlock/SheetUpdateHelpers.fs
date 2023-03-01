@@ -232,6 +232,23 @@ let appendUndoList (undoList: Model List) (model_in: Model): Model List =
     | _ -> model_in :: (removeLast undoList)
 
 
+let validateTwoSelectedSymbols (model:Model) =
+        match model.SelectedComponents with
+        | [s1; s2] as syms -> 
+            let symbols = model.Wire.Symbol.Symbols
+            let getSym sId = 
+                Map.tryFind sId symbols
+            match getSym s1, getSym s2 with
+            | Some s1, Some s2 -> 
+                printfn $"Testing with\ns1= {s1.Component.Type}\n s2={s2.Component.Type}"
+                Some(s1,s2)
+            | _ -> 
+                printfn "Error: can't validate the two symbols selected to reorder ports"
+                None
+        | syms -> 
+            printfn $"Can't test because number of selected symbols ({syms.Length}) is not 2"
+            None
+
 /// Mouse Down Update, Can have clicked on: Label, InputPort / OutputPort / Component / Wire / Canvas. Do correct action for each.
 let mDownUpdate 
         (model: Model) 
@@ -503,7 +520,13 @@ let mUpUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> = // mMsg is curr
     | InitialiseMoving compId -> 
             // not sure there is any point to running this from mouse UP this now we are not altering selection?
             // legacy case due for removal?
-            { model with Action = Idle}, wireCmd (BusWireT.SelectWires [])
+            let newModel = fst({ model with Action = Idle}, wireCmd (BusWireT.SelectWires []))
+            
+            validateTwoSelectedSymbols newModel
+            |> function 
+                | Some(s1, s2) -> 
+                    {newModel with Wire = SmartSizeSymbol.reSizeSymbol newModel.Wire s1 s2 BusWireUpdate.updateSymbolWires}, Cmd.none
+                | None -> printfn "SheetUpdateHelpers.fs line 528 delete later"; newModel, Cmd.none
 
     | InitialiseMovingLabel compId ->
         { model with Action = Idle; SelectedLabel = Some compId },
@@ -614,22 +637,6 @@ let getVisibleScreenCentre (model : Model) : XYPos =
         Y = (canvas.scrollTop + canvas.clientHeight / 2.0) / model.Zoom
     }
 
-let validateTwoSelectedSymbols (model:Model) =
-        match model.SelectedComponents with
-        | [s1; s2] as syms -> 
-            let symbols = model.Wire.Symbol.Symbols
-            let getSym sId = 
-                Map.tryFind sId symbols
-            match getSym s1, getSym s2 with
-            | Some s1, Some s2 -> 
-                printfn $"Testing with\ns1= {s1.Component.Type}\n s2={s2.Component.Type}"
-                Some(s1,s2)
-            | _ -> 
-                printfn "Error: can't validate the two symbols selected to reorder ports"
-                None
-        | syms -> 
-            printfn $"Can't test because number of selected symbols ({syms.Length}) is not 2"
-            None
 
 /// Geometric helper used for testing. Probably needs a better name, and to be collected with other
 /// This should perhaps be generalised for all orientations and made a helper function.
@@ -649,6 +656,36 @@ let rec getChannel (bb1:BoundingBox) (bb2:BoundingBox) : BoundingBox option =
             let union = boxUnion bb1 bb2
             let topLeft = {Y=union.TopLeft.Y; X=x2}
             Some {TopLeft = topLeft; H = union.H; W = x2 - x1}
+
+
+let rec getVerticalChannel (bb1:BoundingBox) (bb2:BoundingBox) : BoundingBox option =
+    if bb1.TopLeft.X > bb2.TopLeft.X then
+        getVerticalChannel bb2 bb1
+    else
+        if  bb1.TopLeft.X + bb1.W > bb2.TopLeft.X then
+            None // horizontal intersection
+        elif bb1.TopLeft.Y > bb2.TopLeft.Y + bb2.H || bb1.TopLeft.Y + bb1.H < bb2.TopLeft.Y then
+            None // symbols are not aligned vertically
+        else
+            let x1, x2 = bb1.TopLeft.X + bb1.W, bb2.TopLeft.X // horizontal channel
+            let union = boxUnion bb1 bb2
+            let topLeft = {Y=union.TopLeft.Y; X=x1}
+            Some {TopLeft = topLeft; H = union.H; W = x2 - x1}
+
+
+let rec getHorizontalChannel (bb1:BoundingBox) (bb2:BoundingBox) : BoundingBox option =
+    if bb1.TopLeft.Y > bb2.TopLeft.Y then
+        getHorizontalChannel bb2 bb1
+    else
+        if  bb1.TopLeft.Y + bb1.H > bb2.TopLeft.Y then
+            None // horizontal intersection
+        elif bb1.TopLeft.X > bb2.TopLeft.X + bb2.W || bb1.TopLeft.X + bb1.W < bb2.TopLeft.X then
+            None // symbols are not aligned vertically
+        else
+            let y1, y2 = bb1.TopLeft.Y + bb1.H, bb2.TopLeft.Y // horizontal channel
+            let union = boxUnion bb1 bb2
+            let topLeft = {X=union.TopLeft.X; Y=y1}
+            Some {TopLeft = topLeft; W = union.W; H = y2 - y1}
 
         
 
