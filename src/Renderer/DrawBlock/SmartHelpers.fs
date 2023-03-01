@@ -128,7 +128,7 @@ let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list=
     |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
  
 
-// Find the orientation of a wire segment given its index
+/// Find the orientation of a wire segment given its index
 ///HLP23: AUTHOR Sougioultzoglou
 let findSegmentOrientation (wire: Wire) (segmentIndex: int)
     : Orientation =
@@ -260,11 +260,11 @@ let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (sy
 /// It will return True if the point is within the box, False otherwise.
 /// HLP 23: Author Gkamaletsos
 let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
-    printfn "Boundingbox width: %A %A %A" bBox.W bBox.TopLeft point
+    //printfn "Boundingbox width: %A %A %A" bBox.W bBox.TopLeft point
     let horizontally = point.X > bBox.TopLeft.X && point.X < bBox.TopLeft.X + bBox.W
     let vertically = point.Y > bBox.TopLeft.Y && point.Y < bBox.TopLeft.Y + bBox.H
-    if horizontally = true
-    then printfn "vertical point in bBox detected"
+    //if horizontally = true
+    //then printfn "vertical point in bBox detected"
 
     horizontally && vertically
 
@@ -274,7 +274,7 @@ let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
 /// HLP 23: Author Gkamaletsos
 let crossesBBox (startPos: XYPos) (endPos: XYPos) (bBox: BoundingBox): bool =
     let horizontally = (startPos.X < bBox.TopLeft.X) && (endPos.X > bBox.TopLeft.X + bBox.W) && (startPos.Y > bBox.TopLeft.Y) && (startPos.Y < bBox.TopLeft.Y + bBox.H)
-    let vertically = (startPos.Y < bBox.TopLeft.Y) && (endPos.Y > bBox.TopLeft.Y + bBox.H) && (startPos.X > bBox.TopLeft.X) && (startPos.X < bBox.TopLeft.X + bBox.W)
+    let vertically = (((startPos.Y < bBox.TopLeft.Y) && (endPos.Y > bBox.TopLeft.Y + bBox.H)) || ((endPos.Y < bBox.TopLeft.Y) && (startPos.Y > bBox.TopLeft.Y + bBox.H))) && (startPos.X > bBox.TopLeft.X) && (startPos.X < bBox.TopLeft.X + bBox.W)
 
     horizontally || vertically
 
@@ -290,6 +290,6 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
     let bBox = getSymbolBoundingBox symbol
 
     match pointInBBox startPos bBox || pointInBBox endPos bBox || crossesBBox startPos endPos bBox with
-        | true ->  printfn "startPos in bBox: %A, endPos in bBox: %A" (pointInBBox startPos bBox) (pointInBBox endPos bBox)
+        | true ->  //printfn "startPos in bBox: %A, endPos in bBox: %A" (pointInBBox startPos bBox) (pointInBBox endPos bBox)
                    Some orientation
         | false -> None 
