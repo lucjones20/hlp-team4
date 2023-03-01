@@ -169,16 +169,16 @@ let routeSubChannelWires
         :Model =
 
     /// Move the parallel segment of the channel wires belonging to a group (wires have been grouped based on the starting position of their parallel
-    /// segments and their output ports) in the direction perpendicular to the orientation of the channel
+    /// segments and their source ports) in the direction perpendicular to the orientation of the channel
     let updateWireGroup (wireGroup: ChannelWire list) (channelStartPosition: float) (separationDistance: float) (wireGroupIndex: int) 
         : Wire List =
         let updateWire = function
         | {Wire = wire; ParallelSegIndex = idx; ParallelSegStartPos = startPos;} when channelOrientation = Horizontal->
             let moveDistance = channelStartPosition - startPos.Y + separationDistance * (float wireGroupIndex + 1.0)
-            moveSegment model wire.Segments.[idx] moveDistance
+            moveSegment model wire.Segments[idx] moveDistance
         | {Wire = wire; ParallelSegIndex = idx; ParallelSegStartPos = startPos;} ->
             let moveDistance = channelStartPosition - startPos.X + separationDistance * (float wireGroupIndex + 1.0)
-            moveSegment model wire.Segments.[idx] moveDistance
+            moveSegment model wire.Segments[idx] moveDistance
 
         wireGroup
         |> List.map updateWire
@@ -189,7 +189,7 @@ let routeSubChannelWires
         (wireGroup2: {|ParallelSegStart: float; Wires: ChannelWire list|})
         :int =
         let findSegmentLength (segmentIndex: int) (cw: ChannelWire): float =
-            cw.Wire.Segments.[segmentIndex].Length
+            cw.Wire.Segments[segmentIndex].Length
         // Find the wire with the longest parallel segment in each group
         // Since all wires in the wire group will be moved/shifted together height/width (depending on orientation)
         // do the sorting based ot its longest parallel segment since its the one with the potential to cross
@@ -201,8 +201,8 @@ let routeSubChannelWires
            wireGroup2.Wires
         |> List.maxBy (fun channelWire ->abs (findSegmentLength channelWire.ParallelSegIndex channelWire))
 
-        let parallelAndPrevSameSign1  = wireWithLongestSeg1.Wire.Segments.[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments.[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
-        let parallelAndPrevSameSign2  = wireWithLongestSeg2.Wire.Segments.[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments.[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
+        let parallelAndPrevSameSign1  = wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
+        let parallelAndPrevSameSign2  = wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
         match parallelAndPrevSameSign1 , parallelAndPrevSameSign2  with
         | true, true ->
             compare (- wireGroup1.ParallelSegStart) (- wireGroup2.ParallelSegStart)
@@ -269,7 +269,7 @@ let smartChannelRoute
     |> Map.toList
     |> List.map (fun (_, wire) -> findParallelSegmentIndexes wire channelOrientation, wire)
     // Only keep wires with a single segment parallel to the channel (i.e candidates for rearrangement) to avoid overly complex scenarios
-    |> List.collect (fun (parallelSegIndexes, wire) -> if List.length parallelSegIndexes = 1 then [(parallelSegIndexes.[0], wire)] else [])
+    |> List.collect (fun (parallelSegIndexes, wire) -> if List.length parallelSegIndexes = 1 then [(parallelSegIndexes[0], wire)] else [])
     |> List.collect findChannelWires
 
     let subChannels = formSubChannels channelWires channel channelOrientation
