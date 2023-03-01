@@ -298,7 +298,6 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
         | true  -> Some orientation
         | false -> crossesBBox startPos endPos bBox
 
-        
 /// This function takes an oldPorts Map, an edge, an order list, and another list, 
 /// and returns a sorted list of strings based on the given order list. If the 
 /// string isn't in the order list, then it will be sorted at the end.
