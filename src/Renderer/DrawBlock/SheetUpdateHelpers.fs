@@ -527,7 +527,8 @@ let mUpUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> = // mMsg is curr
             validateTwoSelectedSymbols newModel
             |> function 
                 | Some(s1, s2) -> 
-                    {newModel with Wire = SmartSizeSymbol.reSizeSymbol newModel.Wire s1 s2 BusWireUpdate.updateSymbolWires}, Cmd.none
+                    // use of updateSymbolWiresNotSmart because smartAutoroute breaks reSizeSymbol
+                    {newModel with Wire = SmartSizeSymbol.reSizeSymbol newModel.Wire s1 s2 BusWireUpdate.updateSymbolWiresNotSmart}, Cmd.none
                 | None -> printfn "SheetUpdateHelpers.fs line 528 delete later"; newModel, Cmd.none
 
     | InitialiseMovingLabel compId ->

@@ -756,7 +756,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
          |> function
             | Some (s1,s2) ->
                 // added updateSymbolWires to be able to update wires
-                {model with Wire = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires}, Cmd.none
+                // use of updateSymbolWiresNotSmart because smartAutoroute breaks reSizeSymbol
+                {model with Wire = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWiresNotSmart}, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none
