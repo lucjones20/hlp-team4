@@ -249,7 +249,8 @@ let routeSubChannelWires
 /// The idea behind the algorithm is to divide the channel into sub channels where the parallel segments of the previously selected wires
 /// overlap either on the x or y direction (for horizontal and vertical channels respectively) and space out the wires nicely and evenly
 /// within each sub channel
-// Testing this function can be done by selecting two symbols that form either a veritcal or a horizontal channel between them  and and running the testChannel command
+// Testing this function can be done by selecting two symbols that form either a veritcal or a horizontal channel between them and running the testChannel command
+// from the edit bar 
 let smartChannelRoute 
     (channelOrientation: Orientation) 
     (channel: BoundingBox) 
