@@ -23,6 +23,7 @@ open SmartHelpers
     this purpose.
 *)
 
+// HLP23: AUTHOR Sougioultzoglou (entire file)
 
 ///The position of a point relative to a channel
 type PosRelativeToChannel = Inside | Outside
@@ -243,7 +244,7 @@ let routeSubChannelWires
 /// The conditions for a wire to be considered for rerouting are that it should firstly pass
 /// through the channel, have a segment parallel to the channel oriantation that goes through the channel
 /// and also have at least one edge originating from outsdie the channel (i.e it musn't be bounded by the channel).
-///Both autorouted and manually routed wire and are considered
+/// Both autorouted and manually routed wire and are considered
 /// The segment parallel to the channel is the one which will be moved to achieve this better spacing, and for this implementation
 /// only wires with one non zero length parallel segment will be included.
 /// The idea behind the algorithm is to divide the channel into sub channels where the parallel segments of the previously selected wires
