@@ -201,9 +201,9 @@ let routeSubChannelWires
            wireGroup2.Wires
         |> List.maxBy (fun channelWire ->abs (findSegmentLength channelWire.ParallelSegIndex channelWire))
 
-        let parallelAndPrevSameSign1  = wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
-        let parallelAndPrevSameSign2  = wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
-        match parallelAndPrevSameSign1 , parallelAndPrevSameSign2  with
+        let parallelAndPrevSegsSameSign1  = wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
+        let parallelAndPrevSegsSameSign2  = wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
+        match parallelAndPrevSegsSameSign1 , parallelAndPrevSegsSameSign2  with
         | true, true ->
             compare (- wireGroup1.ParallelSegStart) (- wireGroup2.ParallelSegStart)
         | true, false -> -1
@@ -242,14 +242,14 @@ let routeSubChannelWires
 /// that should be rerouted, in order to make the channel clearer and cleaner.
 /// The conditions for a wire to be considered for rerouting are that it should firstly pass
 /// through the channel, have a segment parallel to the channel oriantation that goes through the channel
-/// and also have at least one edge originating from outsdie the channel. Both autorouted and manually routed wire and
-/// are considered
+/// and also have at least one edge originating from outsdie the channel (i.e it musn't be bounded by the channel).
+///Both autorouted and manually routed wire and are considered
 /// The segment parallel to the channel is the one which will be moved to achieve this better spacing, and for this implementation
 /// only wires with one non zero length parallel segment will be included.
 /// The idea behind the algorithm is to divide the channel into sub channels where the parallel segments of the previously selected wires
 /// overlap either on the x or y direction (for horizontal and vertical channels respectively) and space out the wires nicely and evenly
 /// within each sub channel
-// Testing this function can be done by selecting either to veritcal or two horizontal segments and and running the testChannel command
+// Testing this function can be done by selecting two symbols that form either a veritcal or a horizontal channel between them  and and running the testChannel command
 let smartChannelRoute 
     (channelOrientation: Orientation) 
     (channel: BoundingBox) 
