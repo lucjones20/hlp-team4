@@ -30,17 +30,41 @@ let reOrderPorts
     (symbolToOrder: Symbol) 
     (otherSymbol: Symbol) 
         : BusWireT.Model =
-    printfn $"ReorderPorts: ToOrder:{symbolToOrder.Component.Label}, Other:{otherSymbol.Component.Label}"
     let sModel = wModel.Symbol
+    let connectingPorts = SmartHelpers.getSelectedSymbolWires wModel symbolToOrder otherSymbol
+    let connectingPortsIds = SmartHelpers.findPortIds connectingPorts
+    
+    let orderEdge = 
+        connectingPortsIds 
+        |> List.map (fun (x,_) -> x) 
+        |> List.map symbolToOrder.PortMaps.Orientation.TryFind
+        |> List.choose id
+    let staticEdge = 
+        connectingPortsIds 
+        |> List.map (fun (_,x) -> x) 
+        |> List.map otherSymbol.PortMaps.Orientation.TryFind
+        |> List.choose id
+        
+    let portsToGetOrderFrom = connectingPortsIds |> List.map (fun (_,x) -> x)
+    let portsStaticByEdge = SmartHelpers.groupByEdge staticEdge portsToGetOrderFrom
+    let optimalOrder = otherSymbol.PortMaps.Order
+    let oldOrder = symbolToOrder.PortMaps.Order
+    // Sorts non changing ports that are connected so the optimal order for the connected ports is found
+    let sortedMapOfStaticPorts = SmartHelpers.sortPorts portsStaticByEdge optimalOrder 
+    // list in order required for the static ports - makes it easier to sort the connectingPortsIds
+    let sortedListOfStaticPorts = SmartHelpers.getListOfPortsFromMap sortedMapOfStaticPorts 
+    
+    let sortedConnectingPorts = SmartHelpers.sortTupleListByList connectingPortsIds sortedListOfStaticPorts
+    let newOrderEdge = SmartHelpers.sortEdgeByList orderEdge sortedListOfStaticPorts connectingPortsIds
 
-    let wiresToOrder = [] // replace this with correct wires
+    let changedOrder = SmartHelpers.groupByEdge newOrderEdge sortedConnectingPorts
 
-    let symbol' = symbolToOrder // no change at the moment
+    let newOrder = SmartHelpers.correctOrderingOfPorts oldOrder changedOrder
+    let symbol' = {symbolToOrder with PortMaps = {symbolToOrder.PortMaps with Order = newOrder}}
     // HLP23: This could be cleaned up using Optics - see SmartHelpers for examples
     {wModel with 
         Wires = wModel.Wires // no change for now, but probably this function should use update wires after reordering.
-                             // to make that happen the tyest function which calls this would need to provide an updateWire
-                             // function to this as a parameter (as was done in Tick3)
+                                // to make that happen the test function which calls this would need to provide an updateWire
+                                // function to this as a parameter (as was done in Tick3)
         Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
     }
-
