@@ -84,9 +84,9 @@ open Operators
 
 
 let smartAutoroute (model: Model) (wire: Wire): Wire =
-    printfn "-----------------New Autoroute-------------------"
+    //printfn "-----------------New Autoroute-------------------"
     let wire2 = autoroute model wire
-    printfn "Wire has %A segments" (List.length wire2.Segments)
+    //printfn "Wire has %A segments" (List.length wire2.Segments)
     let symbols = model.Symbol.Symbols
     //let removeFstLast list =
     //    list |> List.tail |> List.rev |> List.tail |> List.rev
@@ -95,7 +95,7 @@ let smartAutoroute (model: Model) (wire: Wire): Wire =
 
     let checkWireSegs (wire3: Wire) (el: ComponentId*Symbol) =
         let symbol = snd(el)
-        printfn "Symbol %A" symbol.Id
+        //printfn "Symbol %A" symbol.Id
         let segFolder (wire4: Wire) (i: int) =
             if i <= (List.length wire4.Segments) - 1
             then
@@ -107,7 +107,7 @@ let smartAutoroute (model: Model) (wire: Wire): Wire =
             
 
                 let intersect = segOverSymbol symbol i wire4
-                printfn "Intersection %A segment %A" intersect i
+                //printfn "Intersection %A segment %A" intersect i
                 //printfn "startPos is %A" startPos
 
                 match intersect with
