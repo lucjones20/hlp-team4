@@ -84,11 +84,11 @@ open Operators
 
 
 let smartAutoroute (model: Model) (wire: Wire): Wire =
-    printfn "-----------------New Autoroute-------------------"
+    //printfn "-----------------New Autoroute-------------------"
     let wire2 = autoroute model wire
     let newModel = updateWireSegmentJumps [wire2.WId] (Optic.set (wireOf_ wire2.WId) wire2 model)
-    printfn "Segments: %A" wire2.Segments
-    printfn "Wire has %A segments" (List.length wire2.Segments)
+    //printfn "Segments: %A" wire2.Segments
+    //printfn "Wire has %A segments" (List.length wire2.Segments)
     let symbols = model.Symbol.Symbols
     //let removeFstLast list =
     //    list |> List.tail |> List.rev |> List.tail |> List.rev
@@ -97,7 +97,7 @@ let smartAutoroute (model: Model) (wire: Wire): Wire =
 
     let checkWireSegs (wire3: Wire) (el: ComponentId*Symbol) =
         let symbol = snd(el)
-        printfn "Symbol %A" symbol.Id
+        //printfn "Symbol %A" symbol.Id
         let segFolder (wire4: Wire) (i: int) =
             if (i <= (List.length wire4.Segments) - 1) && (wire4.Segments.[i].Length <> 8.0)
             then
@@ -114,7 +114,7 @@ let smartAutoroute (model: Model) (wire: Wire): Wire =
 
                 match intersect with
                 | Some orientation ->
-                          printfn "Intersection %A segment %A" intersect i
+                          //printfn "Intersection %A segment %A" intersect i
                           match orientation with
                           | Horizontal ->
                                 if startPos.Y < (bBox.TopLeft.Y + (bBox.H / 2.0))
@@ -130,7 +130,7 @@ let smartAutoroute (model: Model) (wire: Wire): Wire =
                                 if startPos.X < (bBox.TopLeft.X + (bBox.W / 2.0))
                                 then
                                     let intDistance = -((bBox.W / 2.0) + 10.0 + (startPos.X - (bBox.TopLeft.X + (bBox.W / 2.0))))
-                                    printfn "distance moved %A" intDistance
+                                    //printfn "distance moved %A" intDistance
                                     moveSegment newModel wire4.Segments.[i] intDistance
                                 else
                                     let intDistance = (startPos.X - (bBox.TopLeft.X + (bBox.W / 2.0))) - (bBox.W / 2.0) + 10.0
