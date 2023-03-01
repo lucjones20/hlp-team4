@@ -369,21 +369,8 @@ let correctOrderingOfPorts (originalList: Map<Edge, string list>) (correctOrderL
     originalList
     |> Map.fold (fun acc edge originalPorts -> 
         let correctPorts = Map.find edge correctOrderList
-        let orderedPorts = SmartHelpers.correctOrderingOfList originalPorts correctPorts
+        let orderedPorts = correctOrderingOfList originalPorts correctPorts
         Map.add edge orderedPorts acc) Map.empty
-    
-/// This function takes a correctOrderList and an originalList, and returns a new list where the 
-/// elements in the correctOrderList come first in the same order they appear in the 
-/// correctOrderList, followed by any elements from the originalList that are not in the correctOrderList.
-/// HLP 23: Author Parry
-let correctOrderingOfList (correctOrderList: string list) (originalList: string list): string list = 
-    let wrongPorts = List.except correctOrderList originalList 
-    let rec assembleList wrongPortList correctOrderList index acc = 
-        match wrongPortList with
-            |a::tail -> if originalList[index] = a then assembleList tail correctOrderList (index+1) (acc @ [a])
-                        else acc @ correctOrderList @ wrongPortList
-            | _ -> acc @ correctOrderList
-    assembleList wrongPorts correctOrderList 0 []
     
 /// This function takes a list of tuples, where each tuple contains two strings, and a reference 
 /// list, and returns a list of strings sorted according to the order of the reference list.
