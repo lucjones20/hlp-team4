@@ -10,3 +10,9 @@ Konstantinos Sougioultzolgou ks2220 (AUTHOR Sougioultzoglou):
 - [SmartChannel](src/Renderer/DrawBlock/SmartChannel.fs) -> all functions in file
 - [SmartHelpers](src/Renderer/DrawBlock/SmartHelpers.fs) -> some helper functions
 - [SheetUpdate](src/Renderer/DrawBlock/SheetUpdate.fs) -> Added functionaloty for both vertical and horizontal channel testing 
+
+Angus Parry:
+- [SmartPortOrder](src/Renderer/DrawBlock/SmartPortOrder.fs)
+
+Theodoros Gkamaletsos:
+- [SmartAutoroute](src/Renderer/DrawBlock/SmartWire.fs)
