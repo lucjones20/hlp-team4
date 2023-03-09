@@ -31,6 +31,7 @@ let reOrderPorts
     (wModel: BusWireT.Model) 
     (symbolToOrder: Symbol) 
     (otherSymbol: Symbol) 
+    (updateSymbolWires)
         : BusWireT.Model =
     let sModel = wModel.Symbol
     let connectingPorts = SmartHelpers.getSelectedSymbolWires wModel symbolToOrder otherSymbol
@@ -64,9 +65,13 @@ let reOrderPorts
     let newOrder = SmartHelpers.correctOrderingOfPorts oldOrder changedOrder
     let symbol' = {symbolToOrder with PortMaps = {symbolToOrder.PortMaps with Order = newOrder}}
     // HLP23: This could be cleaned up using Optics - see SmartHelpers for examples
-    {wModel with 
-        Wires = wModel.Wires // no change for now, but probably this function should use update wires after reordering.
-                                // to make that happen the test function which calls this would need to provide an updateWire
-                                // function to this as a parameter (as was done in Tick3)
-        Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
-    }
+    let newWires =
+        //updateSymbolWires wModel symbolToOrder.Id
+        {wModel with 
+            Wires = wModel.Wires // no change for now, but probably this function should use update wires after reordering.
+                                    // to make that happen the test function which calls this would need to provide an updateWire
+                                    // function to this as a parameter (as was done in Tick3)
+            Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
+        }
+    
+    updateSymbolWires newWires symbolToOrder.Id
