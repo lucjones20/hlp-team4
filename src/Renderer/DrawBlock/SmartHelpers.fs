@@ -308,8 +308,8 @@ let sorted
     (other: string list) =
         oldPorts
         |> Map.find edge
-        |> List.sortBy (fun inPort -> 
-                List.findIndex ((=) inPort) order 
+        |> List.sortBy (fun port -> 
+                List.findIndex ((=) port) order 
                 |> function 
                    | -1 -> List.length other 
                    | i -> i)
