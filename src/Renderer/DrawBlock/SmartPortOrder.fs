@@ -34,9 +34,14 @@ let reOrderPorts
     (updateSymbolWires)
         : BusWireT.Model =
     let sModel = wModel.Symbol
-    let connectingPorts = SmartHelpers.getSelectedSymbolWires wModel symbolToOrder otherSymbol
-    let connectingPortsIds = SmartHelpers.findPortIds connectingPorts
-    
+    let connectingOutputPorts = SmartHelpers.getSelectedSymbolWires wModel symbolToOrder otherSymbol
+    let connectingInputPorts = SmartHelpers.getSelectedSymbolWires wModel otherSymbol symbolToOrder
+    let connectingOutputPortsIds = SmartHelpers.findPortIds connectingOutputPorts
+    let connectingInputPortsIds = 
+        SmartHelpers.findPortIds connectingInputPorts
+        |> List.map (fun (x,y) -> y,x)
+    let connectingPortsIds = connectingOutputPortsIds @ connectingInputPortsIds
+
     let orderEdge = 
         connectingPortsIds 
         |> List.map (fun (x,_) -> x) 

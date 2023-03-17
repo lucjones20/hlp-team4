@@ -306,10 +306,10 @@ let reSizeSymbol
             // get the relevant input and output ports of the symbols
             let (outputEdge, inputEdge, outputPorts, inputPorts) = getOutputInputPorts referenceSymbol symbolToResize
 
-            let newPorts = (
-                getSelectedSymbolWires wModel referenceSymbol symbolToResize
-                |> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge 
-            ) 
+            //let newPorts = (
+            //    getSelectedSymbolWires wModel referenceSymbol symbolToResize
+            //    |> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge 
+            //) 
             
             // arguments for updateSymbolSize
             let args = {
@@ -317,7 +317,7 @@ let reSizeSymbol
                 xOrYLens_ = y_;
                 XY = Y;
                 newDimension = newHeight;
-                newPorts = newPorts;
+                newPorts = symbolToResize.PortMaps.Order;
                 referenceSymbol = referenceSymbol;
                 symbolToResize = symbolToResize
             }

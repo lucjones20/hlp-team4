@@ -324,13 +324,8 @@ let sortPorts
         optimalOrder 
         |> Map.fold (fun acc edge order -> 
                 let other = 
-                    oldPorts
-                    |> Map.filter (fun e _ -> e <> edge)
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, strlst) -> strlst)
-                    |> Seq.concat
-                    |> Seq.distinct
-                    |> List.ofSeq
+                    oldPorts[edge]
+                    |> List.distinct
                 let sortedPorts = sorted oldPorts edge order other
                 Map.add edge sortedPorts acc) 
             Map.empty
