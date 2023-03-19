@@ -426,7 +426,6 @@ let reSizeSymbol
     //         // do nothing and return the model
     //         wModel
     //     | RtL, referenceSymbol, symbolToResize ->
-    //         let newHeight= referenceSymbol.Component.H * (((float symbolToResize.Component.InputPorts.Length - 1.0) + 2.0 * Constants.gap) / ((float referenceSymbol.Component.OutputPorts.Length - 1.0 ) + 2.0 * Constants.gap))
 
     //         let currentHorizontalScale = Option.defaultValue 1. referenceSymbol.HScale 
     //         let currentVerticalScale = Option.defaultValue 1. referenceSymbol.VScale
