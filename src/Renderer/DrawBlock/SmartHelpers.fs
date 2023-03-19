@@ -162,6 +162,83 @@ let findParallelSegmentIndexes (wire: Wire) (orientation: Orientation)=
         then seg.Index::indexes
         else  indexes) []
 
+
+/// Returns a distance for a wire move that has been reduced if needed to
+/// keep the segment edges that need to be moved curved, as well as enforce minimum first/last segment lengths
+let getSaferDistanceForMove (segments: Segment list) (index: int) (distance: float) =
+    /// Returns a list of segments up to the first non-zero segment perpendicular to the segment leaving the port
+    let findBindingSegments portIndex (segList: Segment List) = 
+        segList
+        |> List.takeWhile (fun seg -> seg.Index % 2 = portIndex % 2 || seg.Length = 0) // Works for both input and output ports
+
+    let findDistanceFromPort boundSegList =
+        (0., boundSegList)
+        ||> List.fold (fun dist seg -> dist + seg.Length) // Since the segments in perpendicular direction are 0 we can just sum up all the segments as if they are in the same direction
+   
+    let reduceDistance bindingSegs findBindingIndex distance = 
+        if findBindingIndex bindingSegs <> index then 
+            distance
+        else
+            findDistanceFromPort bindingSegs
+            |> (fun dist -> 
+                    if sign dist = -1 then 
+                        max distance (dist + Constants.nubLength + Constants.cornerRadius)
+                    else 
+                        min distance (dist - Constants.nubLength - Constants.cornerRadius))
+
+    let bindingInputSegs = 
+        segments
+        |> findBindingSegments 0
+        |> List.map (fun seg -> { seg with Length = -seg.Length})
+
+    let bindingOutputSegs =
+        List.rev segments
+        |> findBindingSegments (segments.Length - 1)
+
+    let findInputBindingIndex boundSegList =
+        boundSegList
+        |> List.length
+
+    let findOutputBindingIndex =
+        findInputBindingIndex
+        >> (-) (segments.Length - 1)
+
+    distance
+    |> reduceDistance bindingInputSegs findInputBindingIndex
+    |> reduceDistance bindingOutputSegs findOutputBindingIndex
+
+
+/// Returns a wwireOf_aining the updated list of segments after a segment is moved by 
+/// a specified distance. The moved segment is tagged as manual so that it is no longer auto-routed.
+/// This function is very similar to moveSegment but restricts the moved distance so as not to cut of any rounded
+/// segment corners
+/// Throws an error if the index of the segment being moved is not a valid movable segment index.
+let moveSegmentRestricted (model:Model) (seg:Segment) (distance:float) = 
+    let wire = model.Wires[seg.WireId]
+    let segments = wire.Segments
+    let idx = seg.Index
+
+    if idx <= 0 || idx >= segments.Length - 1 then // Should never happen
+        printfn $"Trying to move wire segment {seg.Index}:{logSegmentId seg}, out of range in wire length {segments.Length}"
+        wire
+    else
+        let safeDistance = getSaferDistanceForMove segments idx distance
+    
+        let prevSeg = segments[idx - 1]
+        let nextSeg = segments[idx + 1]
+        let movedSeg = segments[idx]
+
+        let newPrevSeg = { prevSeg with Length = prevSeg.Length + safeDistance }
+        let newNextSeg = { nextSeg with Length = nextSeg.Length - safeDistance }
+        let newMovedSeg = { movedSeg with Mode = Manual }
+    
+        let newSegments = 
+            segments[.. idx - 2] @ [newPrevSeg; newMovedSeg; newNextSeg] @ segments[idx + 2 ..]
+
+        { wire with Segments = newSegments }
+
+
+
 /// sort 2 symbols with respect to their X position
 /// the left most symbol will be the first element in the return tuple
 /// HLP23: AUTHOR Jones

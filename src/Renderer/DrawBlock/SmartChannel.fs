@@ -276,4 +276,5 @@ let smartChannelRoute
 
     let subChannels = formSubChannels channelWires channel channelOrientation
     (model, subChannels)
-    ||> List.fold (fun model subChannel -> routeSubChannelWires channelOrientation (fst subChannel) (snd subChannel) model) 
+    ||> List.fold (fun model subChannel -> routeSubChannelWires channelOrientation (fst subChannel) (snd subChannel) model)
+
