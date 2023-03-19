@@ -179,7 +179,15 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
         |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
         && ( s2.Component.InputPorts
         |> List.map (fun (x:Port) -> x.Id)
-        |> List.contains (string value.InputPort))) // check that one of the right symbol's input ports is the wire's input port
+        |> List.contains (string value.InputPort)))
+        ||
+        ((s2.Component.OutputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
+        && ( s1.Component.InputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.InputPort)))
+        //  check that one of the right symbol's input ports is the wire's input port
     wModel.Wires
     |> Map.filter matchInputOutputPorts
 
@@ -198,6 +206,10 @@ let labelBoundingBox_: Lens<Symbol, BoundingBox> = // change LabelBoundingBox of
     Lens.create (fun a -> a.LabelBoundingBox) (fun s a -> {a with LabelBoundingBox = s}) 
 
 let topLeft_: Lens<BoundingBox, XYPos> = Lens.create (fun a -> a.TopLeft) (fun s a -> {a with TopLeft = s}) // change TopLeft of LabelBoundingBox
+
+let hScale_: Lens<Symbol, float option> = Lens.create (fun a -> a.HScale) (fun s a -> {a with HScale = s})
+
+let vScale_: Lens<Symbol, float option> = Lens.create (fun a -> a.VScale) (fun s a -> {a with VScale = s})
 
 /// this functions takes two lists: the first one is the original list where a sublist is ordered wrong and the second
 /// is the correct ordering of that sublist 
