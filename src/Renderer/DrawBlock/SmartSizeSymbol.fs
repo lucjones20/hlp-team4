@@ -268,8 +268,9 @@ let reSizeSymbol
                 let (outputEdge, inputEdge, outputPorts, inputPorts) = getOutputInputPorts referenceSymbol symbolToResize
 
                 let newPorts = (
-                    getSelectedSymbolWires wModel referenceSymbol symbolToResize
-                    |> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge 
+                    //getSelectedSymbolWires wModel referenceSymbol symbolToResize
+                    //|> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge 
+                    symbolToResize.PortMaps.Order
                 ) 
                 
                 let rightSymbol' = (
@@ -311,8 +312,9 @@ let reSizeSymbol
                 let newHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
                 
                 let newPorts = (
-                    getSelectedSymbolWires wModel referenceSymbol symbolToResize
-                    |> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge
+                    //getSelectedSymbolWires wModel referenceSymbol symbolToResize
+                    //|> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge
+                    symbolToResize.PortMaps.Order
                 )
                 let rightSymbol' =(
                     Optic.set (hScale_) (Some(newHorizontalScale)) symbolToResize

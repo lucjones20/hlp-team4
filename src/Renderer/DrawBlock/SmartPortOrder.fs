@@ -41,7 +41,7 @@ let reOrderPorts
         SmartHelpers.findPortIds connectingInputPorts
         |> List.map (fun (x,y) -> y,x)
     let connectingPortsIds = connectingOutputPortsIds @ connectingInputPortsIds
-
+    
     let orderEdge = 
         connectingPortsIds 
         |> List.map (fun (x,_) -> x) 
@@ -64,7 +64,7 @@ let reOrderPorts
     
     let sortedConnectingPorts = SmartHelpers.sortTupleListByList connectingPortsIds sortedListOfStaticPorts
     let newOrderEdge = SmartHelpers.sortEdgeByList orderEdge sortedListOfStaticPorts connectingPortsIds
-
+    
     let changedOrder = SmartHelpers.groupByEdge newOrderEdge sortedConnectingPorts
 
     let newOrder = SmartHelpers.correctOrderingOfPorts oldOrder changedOrder

@@ -180,14 +180,14 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
         && ( s2.Component.InputPorts
         |> List.map (fun (x:Port) -> x.Id)
         |> List.contains (string value.InputPort)))
-        ||
-        ((s2.Component.OutputPorts
-        |> List.map (fun (x:Port) -> x.Id)
-        |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
-        && ( s1.Component.InputPorts
-        |> List.map (fun (x:Port) -> x.Id)
-        |> List.contains (string value.InputPort)))
-        //  check that one of the right symbol's input ports is the wire's input port
+        //||
+        //((s2.Component.OutputPorts
+        //|> List.map (fun (x:Port) -> x.Id)
+        //|> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
+        //&& ( s1.Component.InputPorts
+        //|> List.map (fun (x:Port) -> x.Id)
+        //|> List.contains (string value.InputPort)))
+        //  //check that one of the right symbol's input ports is the wire's input port
     wModel.Wires
     |> Map.filter matchInputOutputPorts
 
