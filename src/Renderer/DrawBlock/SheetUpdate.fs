@@ -785,7 +785,17 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none   
-    
+    | TestAlignSymbol ->
+        // Combination of implementable functitons
+         validateTwoSelectedSymbols model
+         |> function
+            | Some (s1,s2) ->
+                let resize = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires
+                let reorder = SmartPortOrder.reOrderPorts resize s1 s2 BusWireUpdate.updateSymbolWires
+                {model with Wire = reorder}, Cmd.none
+            | None -> 
+                printfn "Error: can't validate the two symbols selected to reorder ports"
+                model, Cmd.none
 
     | ToggleNet _ | DoNothing | _ -> model, Cmd.none
     |> Optic.map fst_ postUpdateChecks

@@ -529,6 +529,7 @@ module SheetT =
         | TestPortReorder
         | TestSmartChannel
         | TestPortPosition
+        | TestAlignSymbol
 
 
     type ReadLog = | ReadLog of int
