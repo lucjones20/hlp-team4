@@ -785,7 +785,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none   
-    | TestAlignSymbol ->
+    | TestFormatSymbol ->
         // Combination of implementable functitons
          validateTwoSelectedSymbols model
          |> function

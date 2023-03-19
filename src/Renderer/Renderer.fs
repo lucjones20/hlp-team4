@@ -240,7 +240,7 @@ let editMenu dispatch' =
                makeItem "TestChannel" None (fun ev -> sheetDispatch SheetT.Msg.TestSmartChannel)
                makeItem "TestResize" None (fun ev -> sheetDispatch SheetT.Msg.TestPortPosition)
                menuSeparator
-               makeItem "TestAlignSymbol" None (fun ev -> sheetDispatch SheetT.Msg.TestAlignSymbol)
+               makeItem "TestFormatSymbol" None (fun ev -> sheetDispatch SheetT.Msg.TestFormatSymbol)
 
                
             |]
