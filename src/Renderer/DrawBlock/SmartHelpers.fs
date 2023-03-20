@@ -1,4 +1,8 @@
 ﻿module SmartHelpers
+
+open Elmish
+open Fable.React.Props
+open Fable.React
 open CommonTypes
 open DrawHelpers
 open DrawModelType
@@ -10,6 +14,7 @@ open Symbol
 
 open Optics
 open Operators
+
 
 //-----------------------------------------------------------------------------------------------//
 //---------------------------HELPERS FOR SMART DRAW BLOCK ADDITIONS------------------------------//
@@ -256,7 +261,15 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
         |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
         && ( s2.Component.InputPorts
         |> List.map (fun (x:Port) -> x.Id)
-        |> List.contains (string value.InputPort))) // check that one of the right symbol's input ports is the wire's input port
+        |> List.contains (string value.InputPort)))
+        //||
+        //((s2.Component.OutputPorts
+        //|> List.map (fun (x:Port) -> x.Id)
+        //|> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
+        //&& ( s1.Component.InputPorts
+        //|> List.map (fun (x:Port) -> x.Id)
+        //|> List.contains (string value.InputPort)))
+        //  //check that one of the right symbol's input ports is the wire's input port
     wModel.Wires
     |> Map.filter matchInputOutputPorts
 
@@ -275,6 +288,10 @@ let labelBoundingBox_: Lens<Symbol, BoundingBox> = // change LabelBoundingBox of
     Lens.create (fun a -> a.LabelBoundingBox) (fun s a -> {a with LabelBoundingBox = s}) 
 
 let topLeft_: Lens<BoundingBox, XYPos> = Lens.create (fun a -> a.TopLeft) (fun s a -> {a with TopLeft = s}) // change TopLeft of LabelBoundingBox
+
+let hScale_: Lens<Symbol, float option> = Lens.create (fun a -> a.HScale) (fun s a -> {a with HScale = s})
+
+let vScale_: Lens<Symbol, float option> = Lens.create (fun a -> a.VScale) (fun s a -> {a with VScale = s})
 
 /// this functions takes two lists: the first one is the original list where a sublist is ordered wrong and the second
 /// is the correct ordering of that sublist 
@@ -379,14 +396,14 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
 /// and returns a sorted list of strings based on the given order list. If the 
 /// string isn't in the order list, then it will be sorted at the end.
 /// HLP 23: Author Parry
-let sorted 
+let sorted
     (oldPorts: Map<Edge,string list>) 
     (edge: Edge) (order: string list) 
     (other: string list) =
         oldPorts
         |> Map.find edge
-        |> List.sortBy (fun inPort -> 
-                List.findIndex ((=) inPort) order 
+        |> List.sortBy (fun port -> 
+                List.findIndex ((=) port) order 
                 |> function 
                    | -1 -> List.length other 
                    | i -> i)
@@ -401,13 +418,8 @@ let sortPorts
         optimalOrder 
         |> Map.fold (fun acc edge order -> 
                 let other = 
-                    oldPorts
-                    |> Map.filter (fun e _ -> e <> edge)
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, strlst) -> strlst)
-                    |> Seq.concat
-                    |> Seq.distinct
-                    |> List.ofSeq
+                    oldPorts[edge]
+                    |> List.distinct
                 let sortedPorts = sorted oldPorts edge order other
                 Map.add edge sortedPorts acc) 
             Map.empty
@@ -497,3 +509,38 @@ let sortEdgeByList
             | _ -> failwith "Element not found in reference list"
         ((tupleList |> List.map snd), orderEdge) ||> List.map2 (fun x y -> x,y)
         |> List.sortBy sortByRefIndex |> List.map snd
+
+let formatSymbolPopup() : ReactElement =
+    let styledSpan styles txt = span [Style styles] [str <| txt]
+    let bSpan txt = styledSpan [FontWeight "bold"] txt
+    let iSpan txt = styledSpan [FontStyle "italic"] txt
+    let tSpan txt = span [] [str txt]
+    div [] [
+    bSpan "Custom components" ; tSpan " (found under "; bSpan "'THIS PROJECT'" ; tSpan ") can be awkwardly aligned with each other and other blocks."
+    br []; br []
+    ul [Style [ListStyle "disc"; MarginLeft "30px"]]
+        [
+            li [] [str "To use this function, select two symbols, the second symbol to be selected will be moved."]
+
+            li [] [ str "The ports will then be reordered to line up with any connecting ports on the first component."]
+            
+            li [] [str "The symbol will be resized to line up neatly with the first port so the sheet looks tidier."]
+            
+            li [] [str "Any wires that cross over the wires between these symbbols will be moved into the neatest ordering." ]
+            ]
+        ]
+
+let userGuidePopup() : ReactElement =
+    let styledSpan styles txt = span [Style styles] [str <| txt]
+    let bSpan txt = styledSpan [FontWeight "bold"] txt
+    let iSpan txt = styledSpan [FontStyle "italic"] txt
+    let tSpan txt = span [] [str txt]
+    div [] [
+    bSpan "For more help: ";        
+        a [            
+            Href "https://tomcl.github.io/issie/user-guide/";            
+            Target "_blank";          
+            Rel "noopener noreferrer"      
+        ]
+        [tSpan "https://tomcl.github.io/issie/user-guide/"]
+    ]

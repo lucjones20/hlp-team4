@@ -223,8 +223,8 @@ let editMenu dispatch' =
                makeElmItem "Rotate Clockwise" "CmdOrCtrl+Right" (fun () -> rotateDispatch SymbolT.RotateClockwise)
                makeElmItem "Flip Vertically" "CmdOrCtrl+Up" (fun () -> sheetDispatch <| SheetT.Flip SymbolT.FlipVertical)
                makeElmItem "Flip Horizontally" "CmdOrCtrl+Down" (fun () -> sheetDispatch <| SheetT.Flip SymbolT.FlipHorizontal)
-               makeItem "Move Component Ports" None (fun _ -> 
-                    dispatch' <| ShowStaticInfoPopup("How to move component ports", SymbolUpdatePortHelpers.moveCustomPortsPopup(), dispatch'))
+               //makeItem "Move Component Ports" None (fun _ -> 
+               //     dispatch' <| ShowStaticInfoPopup("How to move component ports", SymbolUpdatePortHelpers.moveCustomPortsPopup(), dispatch'))
                menuSeparator
                makeElmItem "Align" "CmdOrCtrl+Shift+A"  (fun ev -> sheetDispatch <| SheetT.Arrangement SheetT.AlignSymbols)
                makeElmItem "Distribute" "CmdOrCtrl+Shift+D" (fun ev-> sheetDispatch <| SheetT.Arrangement SheetT.DistributeSymbols)
@@ -239,8 +239,28 @@ let editMenu dispatch' =
                makeItem "TestPortReorder" None (fun ev -> sheetDispatch SheetT.Msg.TestPortReorder)
                makeItem "TestChannel" None (fun ev -> sheetDispatch SheetT.Msg.TestSmartChannel)
                makeItem "TestResize" None (fun ev -> sheetDispatch SheetT.Msg.TestPortPosition)
+               menuSeparator
+               makeItem "FormatSymbol" None (fun ev -> sheetDispatch SheetT.Msg.TestFormatSymbol)
 
                
+            |]
+            |> ResizeArray
+            |> U2.Case1
+            |> Some
+
+let helpMenu dispatch' =
+    jsOptions<MenuItemConstructorOptions> <| fun invisibleMenu ->
+        invisibleMenu.``type`` <- Some MenuItemType.Submenu
+        invisibleMenu.label <- Some "Help"
+        invisibleMenu.visible <- Some true
+        invisibleMenu.submenu <-
+            [|
+               makeItem "Format Symbol Info" None (fun _ -> 
+                    dispatch' <| ShowStaticInfoPopup("How to use format symbol", SmartHelpers.formatSymbolPopup(), dispatch'))
+               makeItem "Move Component Ports" None (fun _ -> 
+                    dispatch' <| ShowStaticInfoPopup("How to move component ports", SymbolUpdatePortHelpers.moveCustomPortsPopup(), dispatch'))
+               makeItem "More Help" None (fun _ -> 
+                    dispatch' <| ShowStaticInfoPopup("User Guide Website", SmartHelpers.userGuidePopup(), dispatch'))
             |]
             |> ResizeArray
             |> U2.Case1
@@ -257,6 +277,8 @@ let attachMenusAndKeyShortcuts dispatch =
                 editMenu dispatch
 
                 viewMenu dispatch
+
+                helpMenu dispatch
             |]
             |> Array.map U2.Case1
             |> electronRemote.Menu.buildFromTemplate   //Help? How do we call buildfromtemplate

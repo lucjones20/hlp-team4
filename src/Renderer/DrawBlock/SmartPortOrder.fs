@@ -31,10 +31,16 @@ let reOrderPorts
     (wModel: BusWireT.Model) 
     (symbolToOrder: Symbol) 
     (otherSymbol: Symbol) 
+    (updateSymbolWires)
         : BusWireT.Model =
     let sModel = wModel.Symbol
-    let connectingPorts = SmartHelpers.getSelectedSymbolWires wModel symbolToOrder otherSymbol
-    let connectingPortsIds = SmartHelpers.findPortIds connectingPorts
+    let connectingOutputPorts = SmartHelpers.getSelectedSymbolWires wModel symbolToOrder otherSymbol
+    let connectingInputPorts = SmartHelpers.getSelectedSymbolWires wModel otherSymbol symbolToOrder
+    let connectingOutputPortsIds = SmartHelpers.findPortIds connectingOutputPorts
+    let connectingInputPortsIds = 
+        SmartHelpers.findPortIds connectingInputPorts
+        |> List.map (fun (x,y) -> y,x)
+    let connectingPortsIds = connectingOutputPortsIds @ connectingInputPortsIds
     
     let orderEdge = 
         connectingPortsIds 
@@ -58,15 +64,19 @@ let reOrderPorts
     
     let sortedConnectingPorts = SmartHelpers.sortTupleListByList connectingPortsIds sortedListOfStaticPorts
     let newOrderEdge = SmartHelpers.sortEdgeByList orderEdge sortedListOfStaticPorts connectingPortsIds
-
+    
     let changedOrder = SmartHelpers.groupByEdge newOrderEdge sortedConnectingPorts
 
     let newOrder = SmartHelpers.correctOrderingOfPorts oldOrder changedOrder
     let symbol' = {symbolToOrder with PortMaps = {symbolToOrder.PortMaps with Order = newOrder}}
     // HLP23: This could be cleaned up using Optics - see SmartHelpers for examples
-    {wModel with 
-        Wires = wModel.Wires // no change for now, but probably this function should use update wires after reordering.
-                                // to make that happen the test function which calls this would need to provide an updateWire
-                                // function to this as a parameter (as was done in Tick3)
-        Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
-    }
+    let newWires =
+        //updateSymbolWires wModel symbolToOrder.Id
+        {wModel with 
+            Wires = wModel.Wires // no change for now, but probably this function should use update wires after reordering.
+                                    // to make that happen the test function which calls this would need to provide an updateWire
+                                    // function to this as a parameter (as was done in Tick3)
+            Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
+        }
+    
+    updateSymbolWires newWires symbolToOrder.Id

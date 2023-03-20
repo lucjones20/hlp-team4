@@ -153,12 +153,19 @@ let formSubChannels
                 {TopLeft = tl; W = min range.End (channel.TopLeft.X + channel.W) - tl.X; H = channel.H}
 
         subChannelBBox , allocatedWires
-                            
-    channelWires
-    |> List.map findParallelSegRange
-    |> List.sortBy (fun range -> range.Start)
-    |> findSubChannelRanges
-    |> List.fold (fun subChannels range-> (allocateWires channelWires range)::subChannels) []
+                
+    match (channelWires.IsEmpty) with  
+    | false ->
+        channelWires
+        |> List.map findParallelSegRange
+        |> List.sortBy (fun range -> range.Start)
+        |> findSubChannelRanges
+        |> List.fold (fun subChannels range-> (allocateWires channelWires range)::subChannels) []
+    | true ->
+        channelWires
+        |> List.map findParallelSegRange
+        |> List.sortBy (fun range -> range.Start)
+        |> List.fold (fun subChannels range-> (allocateWires channelWires range)::subChannels) []        
 
 /// Takes in a subChannel (determnied in the smartChannelRoute main function) along with the channel wires which intersect this
 /// subChannel and spaces them out nicely, so that the wires are clearly visible and intersections are avoided (to an extent)
