@@ -452,3 +452,18 @@ let formatSymbolPopup() : ReactElement =
             li [] [str "Any wires that cross over the wires between these symbbols will be moved into the neatest ordering." ]
             ]
         ]
+
+let userGuidePopup() : ReactElement =
+    let styledSpan styles txt = span [Style styles] [str <| txt]
+    let bSpan txt = styledSpan [FontWeight "bold"] txt
+    let iSpan txt = styledSpan [FontStyle "italic"] txt
+    let tSpan txt = span [] [str txt]
+    div [] [
+    bSpan "For more help: ";        
+        a [            
+            Href "https://tomcl.github.io/issie/user-guide/";            
+            Target "_blank";          
+            Rel "noopener noreferrer"      
+        ]
+        [tSpan "https://tomcl.github.io/issie/user-guide/"]
+    ]

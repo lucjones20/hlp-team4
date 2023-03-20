@@ -259,6 +259,8 @@ let helpMenu dispatch' =
                     dispatch' <| ShowStaticInfoPopup("How to use format symbol", SmartHelpers.formatSymbolPopup(), dispatch'))
                makeItem "Move Component Ports" None (fun _ -> 
                     dispatch' <| ShowStaticInfoPopup("How to move component ports", SymbolUpdatePortHelpers.moveCustomPortsPopup(), dispatch'))
+               makeItem "More Help" None (fun _ -> 
+                    dispatch' <| ShowStaticInfoPopup("User Guide Website", SmartHelpers.userGuidePopup(), dispatch'))
             |]
             |> ResizeArray
             |> U2.Case1
