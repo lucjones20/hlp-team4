@@ -439,7 +439,7 @@ let formatSymbolPopup() : ReactElement =
     let iSpan txt = styledSpan [FontStyle "italic"] txt
     let tSpan txt = span [] [str txt]
     div [] [
-    bSpan "Custom components" ; tSpan " can be awkwardly aligned with each other and other blocks."
+    bSpan "Custom components" ; tSpan " (found under "; bSpan "'THIS PROJECT'" ; tSpan ") can be awkwardly aligned with each other and other blocks."
     br []; br []
     ul [Style [ListStyle "disc"; MarginLeft "30px"]]
         [
