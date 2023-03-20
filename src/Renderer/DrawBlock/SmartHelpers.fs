@@ -1,4 +1,8 @@
 ﻿module SmartHelpers
+
+open Elmish
+open Fable.React.Props
+open Fable.React
 open CommonTypes
 open DrawHelpers
 open DrawModelType
@@ -10,6 +14,7 @@ open Symbol
 
 open Optics
 open Operators
+
 
 //-----------------------------------------------------------------------------------------------//
 //---------------------------HELPERS FOR SMART DRAW BLOCK ADDITIONS------------------------------//
@@ -427,3 +432,23 @@ let sortEdgeByList
             | _ -> failwith "Element not found in reference list"
         ((tupleList |> List.map snd), orderEdge) ||> List.map2 (fun x y -> x,y)
         |> List.sortBy sortByRefIndex |> List.map snd
+
+let formatSymbolPopup() : ReactElement =
+    let styledSpan styles txt = span [Style styles] [str <| txt]
+    let bSpan txt = styledSpan [FontWeight "bold"] txt
+    let iSpan txt = styledSpan [FontStyle "italic"] txt
+    let tSpan txt = span [] [str txt]
+    div [] [
+    bSpan "Custom components" ; tSpan " can be awkwardly aligned with each other and other blocks."
+    br []; br []
+    ul [Style [ListStyle "disc"; MarginLeft "30px"]]
+        [
+            li [] [str "To use this function, select two symbols, the second symbol to be selected will be moved."]
+
+            li [] [ str "The ports will then be reordered to line up with any connecting ports on the first component."]
+            
+            li [] [str "The symbol will be resized to line up neatly with the first port so the sheet looks tidier."]
+            
+            li [] [str "Any wires that cross over the wires between these symbbols will be moved into the neatest ordering." ]
+            ]
+        ]
