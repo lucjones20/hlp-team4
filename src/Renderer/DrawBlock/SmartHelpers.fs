@@ -453,6 +453,12 @@ let formatSymbolPopup() : ReactElement =
             ]
         ]
 
+
+let testPopup =
+    let body = div [] [str "test1"]
+    let foot = div [] [str "test2"]
+    PopupDrawingView.closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
+
 let userGuidePopup() : ReactElement =
     let styledSpan styles txt = span [Style styles] [str <| txt]
     let bSpan txt = styledSpan [FontWeight "bold"] txt
