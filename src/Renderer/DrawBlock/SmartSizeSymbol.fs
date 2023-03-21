@@ -130,17 +130,42 @@ let getCase (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): ResizeScenario *
         // else 
         //     Vertical, s1, s2
 
-let checkEdgeIsCorrect edge wModel referenceSymbol symbolToResize = 
+let checkEdgeIsCorrect e1 e2 wModel referenceSymbol symbolToResize = 
     getSelectedSymbolWires wModel referenceSymbol symbolToResize
     |> Map.values
     |> Seq.toList
     |> List.map (fun x -> (x.OutputPort, x.InputPort))
     |> List.map (fun (x,y) -> (
-        List.contains (string x) (Map.find edge referenceSymbol.PortMaps.Order)
-        || 
-        List.contains (string y) (Map.find edge referenceSymbol.PortMaps.Order)
+        (List.contains (string x) (Map.find e1 referenceSymbol.PortMaps.Order)
+        && 
+        List.contains (string y) (Map.find e2 symbolToResize.PortMaps.Order))
+        // ||
+        // (List.contains (string x) (Map.find e2 referenceSymbol.PortMaps.Order)
+        // && 
+        // List.contains (string y) (Map.find e1 symbolToResize.PortMaps.Order))
+
     ))
     |> List.reduce (||)
+
+type XY = X | Y
+let checkForConflictingWiring (xy:XY) wModel referenceSymbol symbolToResize = 
+    getSelectedSymbolWires wModel referenceSymbol symbolToResize
+    |> Map.values
+    |> Seq.toList
+    |> List.map (fun x -> (x.InputPort, x.OutputPort))
+    |> List.map (fun (x,y) -> Symbol.getTwoPortLocations wModel.Symbol x y)
+    |> List.map (fun (ip,op) -> 
+        match xy with
+            |X -> abs (ip.X-op.X)
+            |Y -> abs (ip.Y-op.Y))
+    |> fun x -> printfn "%A" x ; x
+    |> fun lst -> 
+        match lst with
+            | [] -> 0
+            | [a] -> 1
+            | a::tail -> match (List.fold (fun acc e -> acc && (e = a)) true tail) with
+                            | false -> -1
+                            | true -> List.length tail + 1
 
 
 /// this function takes in 2 symbols: s1 (the reference symbol) and s2 (the symbol to resize)
@@ -177,7 +202,6 @@ let rec orderWiresByOutputPort selectedWires portList acc =
         |_ -> acc
 
 /// type to help know on which axis we have to move the symbol
-type XY = X | Y
 
 /// this function calculates the difference in either the X position or the Y position (depending on the input xy)
 /// of the first wire's input and output ports 
@@ -255,11 +279,12 @@ let reSizeSymbol
     |> fun (case, referenceSymbol, symbolToResize) -> 
         match case with 
             | RtL | LtR ->
-                match case with
-                    |RtL -> printfn "yessir"; (wModel, Some(testPopup))
+                match checkForConflictingWiring X wModel referenceSymbol symbolToResize with
+                    | -1 -> printfn "yessir"; {wModel with PopupViewFunc = Some(testPopup)} 
+                    | 0 | 1 -> wModel
                     | _ -> 
                         let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
-                                match checkEdgeIsCorrect Left wModel referenceSymbol symbolToResize with
+                                match checkEdgeIsCorrect Left Right wModel referenceSymbol symbolToResize with
                                     | true -> Left, Right 
                                     | false -> Right, Left
                         )
@@ -296,7 +321,8 @@ let reSizeSymbol
                         ||> getPortOffset Y
                         |> updateSymbolPosition rightSymbol' y_
                         |> updateModelSymbols interModel
-                        |> fun x -> updateSymbolWires x rightSymbol'.Id), None
+                        |> fun x -> updateSymbolWires x rightSymbol'.Id)
+                    // |true -> printfn "yessir"; {wModel with PopupViewFunc = Some(testPopup)}
             | TtB | BtT -> 
 
                 // get the relevant input and output ports of the symbols
@@ -333,11 +359,11 @@ let reSizeSymbol
                 ||> getPortOffset X
                 |> updateSymbolPosition rightSymbol' x_
                 |> updateModelSymbols interModel
-                |> fun x -> updateSymbolWires x rightSymbol'.Id), None
+                |> fun x -> updateSymbolWires x rightSymbol'.Id)
 
 
 
-            | _ -> wModel, None
+            | _ -> wModel
         
  
 

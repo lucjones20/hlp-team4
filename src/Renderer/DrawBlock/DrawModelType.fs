@@ -375,6 +375,7 @@ module BusWireT =
         | SetPopupDialogInt of int option
 
 
+
     open Optics
     open Operators
     let symbol_ = Lens.create (fun m -> m.Symbol) (fun w m -> {m with Symbol = w})
