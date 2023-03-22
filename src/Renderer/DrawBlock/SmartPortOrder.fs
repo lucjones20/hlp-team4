@@ -44,24 +44,6 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
     wModel.Wires
     |> Map.filter matchInputOutputPorts
 
-let orderAnd    
-    (wModel: BusWireT.Model)
-    (andBlock: Symbol)
-    (updateSymbolWires)
-        : BusWireT.Model =
-    let sModel = wModel.Symbol
-    let newOrder = andBlock.PortMaps.Order
-    let symbol' = {andBlock with PortMaps = {andBlock.PortMaps with Order = newOrder}}
-    let newWires =
-        //updateSymbolWires wModel symbolToOrder.Id
-        {wModel with 
-            Wires = wModel.Wires 
-            Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
-        }
-    
-    updateSymbolWires newWires andBlock.Id
-        failwithf ""
-
 /// To test this, it must be given two symbols interconnected by wires. It then reorders the ports on
 /// symbolToOrder so that the connecting wires do not cross.
 /// Tt should work out the interconnecting wires (wiresToOrder) from 
