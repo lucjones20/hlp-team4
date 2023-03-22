@@ -322,7 +322,7 @@ let reSizeSymbol
                         // update the model with the new symbol
                         let interModel = updateModelSymbols wModel [rightSymbol']
                         if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect
-                        then printfn "Overlap Detected";
+                        then printfn "Overlap Detected"
                         else printfn "no overlap"
                         
 

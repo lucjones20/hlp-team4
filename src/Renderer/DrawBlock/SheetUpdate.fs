@@ -759,7 +759,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             | Some (s1,s2) ->
                 // added updateSymbolWires to be able to update wires
                 // use of updateSymbolWiresNotSmart because smartAutoroute breaks reSizeSymbol
-                let wires = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires
+                let wires = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires boxesIntersect
                 match wires.PopupViewFunc with
                     | None -> {model with Wire = wires; UndoList = appendUndoList model.UndoList model}, Cmd.none
                     | Some(popup) -> 
@@ -804,7 +804,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
 
                 let reorderOne = SmartPortOrder.reOrderPorts model.Wire s1 s2 BusWireUpdate.updateSymbolWires
                 let reorderTwo = SmartPortOrder.reOrderPorts reorderOne s2 s1 BusWireUpdate.updateSymbolWires
-                let resize = SmartSizeSymbol.reSizeSymbol reorderTwo s1 s2 BusWireUpdate.updateSymbolWires
+                let resize = SmartSizeSymbol.reSizeSymbol reorderTwo s1 s2 BusWireUpdate.updateSymbolWires boxesIntersect
 
                 //let resize = SmartSizeSymbol.selectiveResizeSymbol reorder s2 s1 Left Right BusWireUpdate.updateSymbolWires
                 let bBoxes = model.BoundingBoxes
