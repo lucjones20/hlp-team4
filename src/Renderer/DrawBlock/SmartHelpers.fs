@@ -273,6 +273,16 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
     wModel.Wires
     |> Map.filter matchInputOutputPorts
 
+let getSelectedEdgeWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol) (e1: Edge) (e2: Edge): Map<ConnectionId, Wire> =
+    let matchEdgeToEdgePorts key value : bool = 
+        let edge1Wires = Map.find e1 s1.PortMaps.Order
+        let edge2Wires = Map.find e2 s2.PortMaps.Order
+        ((List.contains (string value.OutputPort) edge1Wires || List.contains (string value.InputPort) edge1Wires)
+        &&
+        (List.contains (string value.OutputPort) edge2Wires) || List.contains (string value.InputPort) edge2Wires)
+    wModel.Wires
+    |> Map.filter matchEdgeToEdgePorts
+
 
 /// lenses used to edit symbols 
 /// HLP23: should be placed in DrawModelType and CommonTypes (I didn't want to change too many files so they are 
@@ -510,6 +520,16 @@ let sortEdgeByList
         ((tupleList |> List.map snd), orderEdge) ||> List.map2 (fun x y -> x,y)
         |> List.sortBy sortByRefIndex |> List.map snd
 
+type XorY = X | Y
+
+let getEdgePosition symbol edge = 
+    match edge with
+        | Left -> symbol.Pos.X
+        | Right -> symbol.Pos.X + symbol.Component.W * Option.defaultValue 1. symbol.HScale
+        | Top -> symbol.Pos.Y
+        | Bottom -> symbol.Pos.Y - symbol.Component.H * Option.defaultValue 1. symbol.VScale
+
+
 let formatSymbolPopup() : ReactElement =
     let styledSpan styles txt = span [Style styles] [str <| txt]
     let bSpan txt = styledSpan [FontWeight "bold"] txt
@@ -538,11 +558,6 @@ let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
     closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
 
 
-type XorY = X | Y
-
-// let getEdgePosition e1 e2 (xy: XorY) wModel referenceSymbol symbolToResize = 
-//     (Map.tryFind e1 referenceSymbol.PortMaps.Order, M)
-
 
 let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: Edge)
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
@@ -550,14 +565,29 @@ let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: 
     let body = div [] [str "body"]
 
     let buttonAction innerSelected dispatch  _ =
+        let symbolEdgePosDiff1 = abs (getEdgePosition symbol1 edge1 - getEdgePosition symbol2 edge2)
+        let symbolEdgePosDiff2 = abs (getEdgePosition symbol1 edge2 - getEdgePosition symbol2 edge1)
+        printfn "%A" symbolEdgePosDiff1
+        printfn "%A" symbolEdgePosDiff2
+        let newEdge1, newEdge2 = (
+            if symbolEdgePosDiff1 < symbolEdgePosDiff2 then 
+                match edge1 with
+                    | Top | Bottom -> (edge1, edge2)
+                    | Left | Right -> (edge2, edge1)
+            else
+                match edge1 with
+                    | Top | Bottom -> (edge2, edge1)
+                    | Left | Right -> (edge1, edge2)
+        )
+        printfn "edge1: %A, edge2: %A, newedge1: %A, newedge2: %A" edge1 edge2 newEdge1 newEdge2
         if innerSelected then
             printfn "True, inner selected"
             dispatch <| ClosePopup
-            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Left, Right)
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, newEdge1, newEdge2)
         else
             printfn "False, outer Selected"
             dispatch <| ClosePopup
-            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Right, Left)
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, newEdge2, newEdge1)
 
     choicePopupFunc 
         "Select resize criterion" 
