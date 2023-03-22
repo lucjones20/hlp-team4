@@ -538,7 +538,13 @@ let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
     closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
 
 
-let resizeSelectPopup //(symbol1: Symbol) (symbol2: Symbol)
+type XorY = X | Y
+
+// let getEdgePosition e1 e2 (xy: XorY) wModel referenceSymbol symbolToResize = 
+//     (Map.tryFind e1 referenceSymbol.PortMaps.Order, M)
+
+
+let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: Edge)
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
 
     let body = div [] [str "body"]
@@ -547,11 +553,11 @@ let resizeSelectPopup //(symbol1: Symbol) (symbol2: Symbol)
         if innerSelected then
             printfn "True, inner selected"
             dispatch <| ClosePopup
-            dispatch <| BusWireT.SelectiveResize
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Left, Right)
         else
             printfn "False, outer Selected"
             dispatch <| ClosePopup
-            dispatch <| BusWireT.SelectiveResize
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Right, Left)
 
     choicePopupFunc 
         "Select resize criterion" 

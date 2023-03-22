@@ -147,8 +147,7 @@ let checkEdgeIsCorrect e1 e2 wModel referenceSymbol symbolToResize =
     ))
     |> List.reduce (||)
 
-type XY = X | Y
-let checkForConflictingWiring (xy:XY) wModel referenceSymbol symbolToResize = 
+let checkForConflictingWiring (xy:XorY) wModel referenceSymbol symbolToResize = 
     getSelectedSymbolWires wModel referenceSymbol symbolToResize
     |> Map.values
     |> Seq.toList
@@ -206,7 +205,7 @@ let rec orderWiresByOutputPort selectedWires portList acc =
 /// this function calculates the difference in either the X position or the Y position (depending on the input xy)
 /// of the first wire's input and output ports 
 /// the output of this function will be used to move the symbol so that the wires are parallel
-let getPortOffset (xy: XY) (selectedWires: Map<ConnectionId, Wire>) (symbolModel: SymbolT.Model): float=
+let getPortOffset (xy: XorY) (selectedWires: Map<ConnectionId, Wire>) (symbolModel: SymbolT.Model): float=
     selectedWires
     |> Map.values
     |> Seq.map (fun (x: Wire) -> 
@@ -232,7 +231,7 @@ let getNewPortOrder (outputPorts: string list) (inputPorts: string list) (symbol
 type UpdateSymbolSizeArgs = {
     heightOrWidthLens_ : Lens<Component, float> 
     xOrYLens_ : Lens<XYPos, float>
-    XY: XY 
+    XY: XorY 
     newDimension: float
     newPorts: Map<Edge, list<string>>
     referenceSymbol: Symbol
@@ -280,7 +279,7 @@ let reSizeSymbol
         match case with 
             | RtL | LtR ->
                 match checkForConflictingWiring X wModel referenceSymbol symbolToResize with
-                    | -1 -> printfn "yessir"; {wModel with PopupViewFunc = resizeSelectPopup} 
+                    | -1 -> printfn "yessir"; {wModel with PopupViewFunc = resizeSelectPopup referenceSymbol symbolToResize Left Right} 
                     | 0 | 1 -> wModel
                     | _ -> 
                         let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
@@ -585,9 +584,7 @@ let selectiveResizeSymbol
         match case with
             | RtL | LtR -> 
                 let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
-                    match checkEdgeIsCorrect Left Right wModel referenceSymbol symbolToResize with
-                            | true -> Left, Right 
-                            | false -> Right, Left
+                    edge1, edge2
                 )
                 let edgePortSizeRef = float (List.length (Map.find edgePortSizeRefEdge referenceSymbol.PortMaps.Order))
                 let edgePortSizeResize = float (List.length (Map.find edgePortSizeResizeEdge symbolToResize.PortMaps.Order))

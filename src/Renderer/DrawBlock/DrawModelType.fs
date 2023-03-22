@@ -373,7 +373,7 @@ module BusWireT =
         | ClosePopup
         | SetPopupDialogText of string option
         | SetPopupDialogInt of int option
-        | SelectiveResize of SymbolT.Symbol * SymbolT.Symbol
+        | SelectiveResize of SymbolT.Symbol * SymbolT.Symbol * Edge * Edge
 
 
 
