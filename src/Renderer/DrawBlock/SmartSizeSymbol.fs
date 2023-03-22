@@ -389,6 +389,9 @@ let reSizeSymbol
                         let referenceSymbol' = Optic.map (hScale_) (scaleDimension scaleRatio) referenceSymbol
                         // update the model with the new symbols
                         let interModel = updateModelSymbols wModel [rightSymbol'; referenceSymbol'] 
+                        if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect
+                        then printfn "Overlap Detected"
+                        else printfn "no overlap"
 
                         // slide the position of the symbol by the calculated offset
                         ((getSelectedSymbolWires interModel referenceSymbol' rightSymbol', interModel.Symbol)
@@ -408,6 +411,7 @@ let selectiveResizeSymbol
     (edge1: Edge)
     (edge2: Edge)
     updateSymbolWires
+    boxesIntercect
     =
     getCase wModel referenceSymbol symbolToResize
     |> fun (case, referenceSymbol, symbolToResize) ->
@@ -427,6 +431,9 @@ let selectiveResizeSymbol
                     // |> Optic.set (portMaps_ >-> order_) symbolToResize.PortMaps.
                 )
                 let interModel = updateModelSymbols wModel [rightSymbol']
+                if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect
+                then printfn "Overlap Detected"
+                else printfn "no overlap"
                 printfn "%A" newVerticalScale
                 ((getSelectedEdgeWires wModel referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge, interModel.Symbol)
                 ||> getPortOffset Y
@@ -460,6 +467,9 @@ let selectiveResizeSymbol
                 )
                 let referenceSymbol' = Optic.map (hScale_) (scaleDimension scaleRatio) referenceSymbol
                 let interModel = updateModelSymbols wModel [rightSymbol'; referenceSymbol']
+                if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect
+                then printfn "Overlap Detected"
+                else printfn "no overlap"
                 ((getSelectedEdgeWires wModel referenceSymbol' symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge, interModel.Symbol)
                 ||> getPortOffset X
                 |> getPortOffsetScale X referenceSymbol' rightSymbol' edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
