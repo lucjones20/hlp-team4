@@ -537,6 +537,30 @@ let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
     let foot = div [] [str "test2"]
     closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
 
+
+let resizeSelectPopup //(symbol1: Symbol) (symbol2: Symbol)
+    : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
+
+    let body = div [] [str "body"]
+
+    let buttonAction innerSelected dispatch  _ =
+        if innerSelected then
+            printfn "True, inner selected"
+            dispatch <| ClosePopup
+        else
+            printfn "False, outer Selected"
+            dispatch <| ClosePopup
+
+    choicePopupFunc 
+        "Select resize criterion" 
+        (fun _ -> body)
+        "Resize based on inner ports" 
+        "Resize based on outer ports" 
+        buttonAction 
+    |> Some
+
+
+
 let userGuidePopup() : ReactElement =
     let styledSpan styles txt = span [Style styles] [str <| txt]
     let bSpan txt = styledSpan [FontWeight "bold"] txt

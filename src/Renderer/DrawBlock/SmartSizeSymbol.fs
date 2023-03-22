@@ -280,7 +280,7 @@ let reSizeSymbol
         match case with 
             | RtL | LtR ->
                 match checkForConflictingWiring X wModel referenceSymbol symbolToResize with
-                    | -1 -> printfn "yessir"; {wModel with PopupViewFunc = Some(testPopup)} 
+                    | -1 -> printfn "yessir"; {wModel with PopupViewFunc = resizeSelectPopup} 
                     | 0 | 1 -> wModel
                     | _ -> 
                         let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
