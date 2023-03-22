@@ -544,59 +544,116 @@ type XorY = X | Y
 type PopupChoice = {
     Number: int
     ButtonColor: IColor
+    ButtonText: string
 }
 
 // let getEdgePosition e1 e2 (xy: XorY) wModel referenceSymbol symbolToResize = 
 //     (Map.tryFind e1 referenceSymbol.PortMaps.Order, M)
 
-let multipleChoicePopupFunc 
+let multipleChoicePopupFunc
         title 
         (body:(Msg->Unit)->ReactElement) 
-        buttonTrueText 
-        buttonFalseText
         (choices: PopupChoice list)
         (buttonAction: int -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
     let foot dispatch =
-        let rightChildren =
-           choices //a list of Button Colors for each choice
-           |> List.map(fun choice -> Level.item [] [
-                          Button.button [
-                              Button.Color choice.ButtonColor
-                              Button.OnClick (buttonAction choice.Number dispatch)
-                          ] [ str buttonFalseText ]
-                      ])
+        let leftChildren =
+           [div [] (choices
+           |> List.mapi(fun i choice ->
+                      div [] [Level.item [] [
+                                  Button.button [
+                                      Button.Color choice.ButtonColor
+                                      Button.OnClick (buttonAction choice.Number dispatch)
+                                  ] [ str choice.ButtonText ]
+                              ];
+                           br [] ]
+                    )
+                )]
         Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
-            Level.left [] []
-            Level.right [] rightChildren
+            Level.left [] leftChildren
+            Level.right [] []
         ]
+
     closablePopupFunc title body foot []
+
+
+//let multipleChoicePopupFuncTest
+    //    title 
+    //    (body:(Msg->Unit)->ReactElement) 
+    //    (choices: PopupChoice list)
+    //    (buttonAction: int -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
+    //let foot dispatch =
+    //    let leftChildren =
+    //       [div [] (choices
+    //       //|> List.filter (fun c -> c.Number % 2 = 0)
+    //       |> List.mapi(fun i choice ->
+    //              match i % 2, i = List.length choices - 1 with
+    //              | 1 , true ->
+    //                   div [] []
+    //              | 0, _ -> 
+    //                  div [] [Level.item [] [
+    //                              Button.button [
+    //                                  Button.Color choice.ButtonColor
+    //                                  Button.OnClick (buttonAction choice.Number dispatch)
+    //                              ] [ str choice.ButtonText ]
+    //                          ]
+    //                         ]
+                   
+    //              | _  ->
+    //                   div [] [ br [] ]
+    //                )
+    //            )]
+
+    //    let rightChildren =
+    //       [div [] (choices
+    //       //|> List.filter (fun c -> c.Number % 2 = 0)
+    //       |> List.tail
+    //       |> List.mapi(fun i choice ->
+    //              match i % 2 with
+    //              | 0 -> 
+    //                  div [] [Level.item [] [
+    //                              Button.button [
+    //                                  Button.Color choice.ButtonColor
+    //                                  Button.OnClick (buttonAction choice.Number dispatch)
+    //                              ] [ str choice.ButtonText ]
+    //                          ]
+    //                         ]
+                           
+    //              | _  ->
+    //                   div [] [ br [] ]
+    //                )
+    //            )]
+                
+    //    Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
+    //        Level.left [] leftChildren
+    //        Level.right [] rightChildren
+    //    ]
+
+    //closablePopupFunc title body foot []
 
 
 let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: Edge)
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
 
-    let body = div [] [str "body"]
+    let body = div [] [str "explanation"]
 
-    let (choices: PopupChoice list) = [{Number = 1; ButtonColor = IsPrimary}; {Number = 2; ButtonColor = IsPrimary}; {Number = 3; ButtonColor = IsLight}]
+    let (choices: PopupChoice list) =
+        [{Number = 1; ButtonColor = IsPrimary; ButtonText = "Resize based on inner ports"};
+        {Number = 2; ButtonColor = IsPrimary; ButtonText = "Resize based on outer ports"};
+        {Number = 3; ButtonColor = IsLight; ButtonText = "Cancel resize"};
+        ]
+
     let buttonAction selectedChoiceNumber dispatch  _ =
         match selectedChoiceNumber with
         | 1 -> 
-            printfn "True, inner selected"
             dispatch <| ClosePopup
             dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Left, Right)
-        | 2 -> 
-            printfn "False, outer Selected"
+        | _ -> 
             dispatch <| ClosePopup
             dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Right, Left)
-        | _ ->
-            printfn "action canceled"
-            dispatch <| ClosePopup
 
-    multipleChoicePopupFunc 
+    multipleChoicePopupFunc
         "Select resize criterion" 
         (fun _ -> body)
-        "Resize based on inner ports" 
-        "Resize based on outer ports"
         choices
         buttonAction 
     |> Some

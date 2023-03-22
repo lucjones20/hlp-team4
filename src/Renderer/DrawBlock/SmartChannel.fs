@@ -193,7 +193,7 @@ let routeSubChannelWires
 
     /// Compares wire groups so that they are nicely ordered and spaced out in the sub channel
     /// Intended for use alongside List.sortWith
-    let compareWireGroups (wireGroup1: {|ParallelSegStart: float; Wires: ChannelWire list|})
+    let compareWireGroups (getXorY: (XYPos -> float)) (wireGroup1: {|ParallelSegStart: float; Wires: ChannelWire list|})
         (wireGroup2: {|ParallelSegStart: float; Wires: ChannelWire list|})
         :int =
         let findSegmentLength (segmentIndex: int) (cw: ChannelWire): float =
@@ -209,15 +209,52 @@ let routeSubChannelWires
            wireGroup2.Wires
         |> List.maxBy (fun channelWire ->abs (findSegmentLength channelWire.ParallelSegIndex channelWire))
 
-        let parallelAndPrevSegsSameSign1  = wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
-        let parallelAndPrevSegsSameSign2  = wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
-        match parallelAndPrevSegsSameSign1 , parallelAndPrevSegsSameSign2  with
+        let parallelAndPrevSegsSameSign1 = wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
+        let parallelAndPrevSegsSameSign2 = wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
+
+        let relativeStartPos1 =
+            match channelOrientation with
+            | Vertical ->
+                match wireWithLongestSeg1.Wire.StartPos.X < wireWithLongestSeg1.ParallelSegStartPos.X with
+                | true ->
+                    wireGroup1.ParallelSegStart
+                |false ->
+                    wireGroup1.ParallelSegStart + wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length
+            | Horizontal ->
+                match wireWithLongestSeg1.Wire.StartPos.Y < wireWithLongestSeg1.ParallelSegStartPos.Y with
+                | true ->
+                    wireGroup1.ParallelSegStart
+                |false ->
+                    wireGroup1.ParallelSegStart + wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length
+
+
+        printfn "%A" relativeStartPos1
+
+        let relativeStartPos2 =
+            match channelOrientation with
+            | Vertical ->
+                match wireWithLongestSeg2.Wire.StartPos.X < wireWithLongestSeg2.ParallelSegStartPos.X with
+                | true ->
+                    wireGroup2.ParallelSegStart
+                |false ->
+                    wireGroup2.ParallelSegStart + wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length
+            | Horizontal ->
+                match wireWithLongestSeg2.Wire.StartPos.Y < wireWithLongestSeg2.ParallelSegStartPos.Y with
+                | true ->
+                    wireGroup2.ParallelSegStart
+                |false ->
+                    wireGroup2.ParallelSegStart + wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length
+
+
+        printfn "%A" relativeStartPos2
+
+        match parallelAndPrevSegsSameSign1 , parallelAndPrevSegsSameSign2 with
         | true, true ->
-            compare (- wireGroup1.ParallelSegStart) (- wireGroup2.ParallelSegStart)
+            compare (- relativeStartPos1) (- relativeStartPos2)
         | true, false -> -1
         | false, true -> 1
         | _ ->
-            compare wireGroup1.ParallelSegStart wireGroup2.ParallelSegStart
+            compare relativeStartPos1 relativeStartPos2
 
     /// Groups the sub-channel wires based on their source ports and either the x or y components of
     /// their starting positions. It then sorts the groups using the compareWireGroups function
@@ -234,7 +271,7 @@ let routeSubChannelWires
         let separationDistance = availabeDistance / (float (List.length groupedChannelWires) + 1.0)
 
         groupedChannelWires
-        |> List.sortWith compareWireGroups
+        |> List.sortWith (compareWireGroups getXorY)
         |> List.mapi (fun i wireGroup -> updateWireGroup wireGroup.Wires channelStartPos separationDistance i)
         |> List.collect id
 
