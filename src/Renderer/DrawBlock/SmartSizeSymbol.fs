@@ -571,3 +571,38 @@ let reSizeSymbol
     //         |> updateSymbolPosition rightSymbol' y_
     //         |> updateModelSymbols interModel
     //         |> fun x -> updateSymbolWires x rightSymbol'.Id 
+
+let selectiveResizeSymbol 
+    (wModel: BusWireT.Model)
+    (referenceSymbol: Symbol)
+    (symbolToResize: Symbol)
+    (edge1: Edge)
+    (edge2: Edge)
+    updateSymbolWires
+    =
+    getCase wModel referenceSymbol symbolToResize
+    |> fun (case, referenceSymbol, symbolToResize) ->
+        match case with
+            | RtL | LtR -> 
+                let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
+                    match checkEdgeIsCorrect Left Right wModel referenceSymbol symbolToResize with
+                            | true -> Left, Right 
+                            | false -> Right, Left
+                )
+                let edgePortSizeRef = float (List.length (Map.find edgePortSizeRefEdge referenceSymbol.PortMaps.Order))
+                let edgePortSizeResize = float (List.length (Map.find edgePortSizeResizeEdge symbolToResize.PortMaps.Order))
+                let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.gap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.gap))
+                let newVerticalScale = (Option.defaultValue 1. referenceSymbol.HScale) *  referenceSymbol.Component.H * (ratio / symbolToResize.Component.H)
+                let rightSymbol' = (
+                    Optic.set (vScale_) (Some(newVerticalScale)) symbolToResize
+                    |> Optic.set (pos_ >-> y_) referenceSymbol.Pos.Y
+                    |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> y_ ) referenceSymbol.LabelBoundingBox.TopLeft.Y
+                    // |> Optic.set (portMaps_ >-> order_) symbolToResize.PortMaps.
+                )
+                let interModel = updateModelSymbols wModel [rightSymbol']
+                printfn "%A" newVerticalScale
+                ((getSelectedSymbolWires interModel referenceSymbol rightSymbol', interModel.Symbol)
+                ||> getPortOffset Y
+                |> updateSymbolPosition rightSymbol' y_
+                |> updateModelSymbols interModel
+                |> fun x -> updateSymbolWires x rightSymbol'.Id)
