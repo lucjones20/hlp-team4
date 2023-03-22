@@ -68,14 +68,14 @@ let sortTupleListByNewList (tupleList: List<string*string>) (refList:string list
         | true, index -> index, y
         | _ -> failwith "Element not found in reference list"
     tupleList |> List.sortBy sortByRefIndex |> List.map snd
-    
+
 /// This function takes a list of tuples, where each tuple contains two strings, and a reference list, 
 /// and returns a list of strings sorted according to the order of the second string in the tuple.
 /// HLP 23: Author Parry
 let sortTupleListByList (tupleList: List<string*string>) (refList:string list) : string list =
     let swapList = tupleList |> List.map (fun (x,y) -> y,x)
     (sortTupleListByNewList swapList refList)
-    
+
 /// This function takes a list of edges, a reference list, and a list of tuples, where each tuple 
 /// contains a string and an edge. It returns a sorted list of edges according to the order of 
 /// the string in the tuple.
@@ -137,9 +137,9 @@ let reOrderPorts
     let sortedListOfStaticPorts = SmartHelpers.getListOfPortsFromMap sortedMapOfStaticPorts 
     
     let sortedConnectingPorts = sortTupleListByList connectingPortsIds sortedListOfStaticPorts
-    let newOrderEdge = sortEdgeByList orderOfMovingEdges sortedListOfStaticPorts connectingPortsIds
+    let sortedOrderofMovingEdges = sortEdgeByList orderOfMovingEdges sortedListOfStaticPorts connectingPortsIds
     
-    let changedOrder = SmartHelpers.groupByEdge newOrderEdge sortedConnectingPorts
+    let changedOrder = SmartHelpers.groupByEdge sortedOrderofMovingEdges sortedConnectingPorts
 
     let newOrder = correctOrderingOfPorts oldOrder changedOrder
     let symbol' = {symbolToOrder with PortMaps = {symbolToOrder.PortMaps with Order = newOrder}}
