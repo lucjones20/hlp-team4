@@ -209,44 +209,26 @@ let routeSubChannelWires
            wireGroup2.Wires
         |> List.maxBy (fun channelWire ->abs (findSegmentLength channelWire.ParallelSegIndex channelWire))
 
+        let findRelativePositionsForSort wireWithLongestSeg (wireGroup: {|ParallelSegStart: float; Wires: ChannelWire list|}) =
+            match channelOrientation with
+            | Vertical ->
+                match wireWithLongestSeg.Wire.StartPos.X < wireWithLongestSeg.ParallelSegStartPos.X with
+                | true ->
+                    wireGroup.ParallelSegStart
+                |false ->
+                    wireGroup.ParallelSegStart + wireWithLongestSeg.Wire.Segments[wireWithLongestSeg.ParallelSegIndex].Length
+            | Horizontal ->
+                match wireWithLongestSeg.Wire.StartPos.Y < wireWithLongestSeg.ParallelSegStartPos.Y with
+                | true ->
+                    wireGroup.ParallelSegStart
+                |false ->
+                    wireGroup.ParallelSegStart + wireWithLongestSeg.Wire.Segments[wireWithLongestSeg.ParallelSegIndex].Length
+
         let parallelAndPrevSegsSameSign1 = wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
         let parallelAndPrevSegsSameSign2 = wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
 
-        let relativeStartPos1 =
-            match channelOrientation with
-            | Vertical ->
-                match wireWithLongestSeg1.Wire.StartPos.X < wireWithLongestSeg1.ParallelSegStartPos.X with
-                | true ->
-                    wireGroup1.ParallelSegStart
-                |false ->
-                    wireGroup1.ParallelSegStart + wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length
-            | Horizontal ->
-                match wireWithLongestSeg1.Wire.StartPos.Y < wireWithLongestSeg1.ParallelSegStartPos.Y with
-                | true ->
-                    wireGroup1.ParallelSegStart
-                |false ->
-                    wireGroup1.ParallelSegStart + wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length
-
-
-        printfn "%A" relativeStartPos1
-
-        let relativeStartPos2 =
-            match channelOrientation with
-            | Vertical ->
-                match wireWithLongestSeg2.Wire.StartPos.X < wireWithLongestSeg2.ParallelSegStartPos.X with
-                | true ->
-                    wireGroup2.ParallelSegStart
-                |false ->
-                    wireGroup2.ParallelSegStart + wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length
-            | Horizontal ->
-                match wireWithLongestSeg2.Wire.StartPos.Y < wireWithLongestSeg2.ParallelSegStartPos.Y with
-                | true ->
-                    wireGroup2.ParallelSegStart
-                |false ->
-                    wireGroup2.ParallelSegStart + wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length
-
-
-        printfn "%A" relativeStartPos2
+        let relativeStartPos1 = findRelativePositionsForSort wireWithLongestSeg1 wireGroup1
+        let relativeStartPos2 = findRelativePositionsForSort wireWithLongestSeg2 wireGroup2
 
         match parallelAndPrevSegsSameSign1 , parallelAndPrevSegsSameSign2 with
         | true, true ->
