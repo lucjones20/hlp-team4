@@ -31,7 +31,7 @@ open Operators
 let makeSegsMovable (wire: Wire) :Wire =
     {
         wire with Segments =
-        wire.Segments |> List.map (fun seg -> {seg with Mode = Auto})
+                    wire.Segments |> List.map (fun seg -> {seg with Mode = Auto})
     }
 
 

@@ -445,18 +445,20 @@ let findPortIds (wires: Map<ConnectionId,Wire>) : ((string * string) List) =
     |> Seq.toList
     |> List.map matching
 
-/// This function takes a list of edges and a list of ports needed, and returns a 
-/// Map of each edge to a list of ports connected to that edge. The returned Map 
-/// is grouped based on the side of the edge (Top, Bottom, Left, or Right).
+/// This function takes a list of edges and a corresponding list of ports needed, 
+/// it then groups the string list into a list of all strings that are on a certain 
+/// edge. This returns a Map of each edge to a list of ports connected to that edge. 
+/// The returned Map is grouped based on the side of the edge (Top, Bottom, Left, or Right).
 /// HLP 23: Author Parry
 let groupByEdge (changingEdge: Edge list) (portsNeeded: string list) =
     let makeMapValue (inputList: (Edge*string)list) (edge:Edge) =
-        let outputList = inputList |> List.map (fun (x,y) -> y)
+        let outputList = inputList |> List.map (fun (_,y) -> y)
         edge, (outputList |> List.rev)
     let splitList (originalList: (Edge*string)list) (edge:Edge)=
-        originalList |> List.partition (fun (x,y) -> x = edge) |> (fun (x,y) -> makeMapValue x edge)
+        originalList |> List.partition (fun (x,_) -> x = edge) |> (fun (x,_) -> makeMapValue x edge)
     let sortedList = (changingEdge,portsNeeded) ||> List.map2 (fun s1 s2 -> (s1,s2))
     Map.ofList [splitList sortedList Top ; splitList sortedList Bottom ; splitList sortedList Left ; splitList sortedList Right]
+
     
 /// This function takes a Map of Edge to string lists and returns a list of strings of all ports.
 /// HLP 23: Author Parry
