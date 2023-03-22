@@ -113,11 +113,11 @@ let reOrderPorts
     
     
     let portsToGetOrderFrom = connectingPortsIds |> List.map (fun (_,x) -> x)
+    let portsToOrder = connectingPortsIds |> List.map (fun (x,_) -> x)
 
     // These are so the ports can be easily regrouped based on the edge they are on
     let orderOfMovingEdges = 
-        connectingPortsIds 
-        |> List.map (fun (x,_) -> x) 
+        portsToOrder
         |> List.map symbolToOrder.PortMaps.Orientation.TryFind
         |> List.choose id
     let orderOfstaticEdges = 
@@ -143,9 +143,7 @@ let reOrderPorts
 
     let newOrder = correctOrderingOfPorts oldOrder changedOrder
     let symbol' = {symbolToOrder with PortMaps = {symbolToOrder.PortMaps with Order = newOrder}}
-    // HLP23: This could be cleaned up using Optics - see SmartHelpers for examples
     let newWires =
-        //updateSymbolWires wModel symbolToOrder.Id
         {wModel with 
             Wires = wModel.Wires 
             Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
