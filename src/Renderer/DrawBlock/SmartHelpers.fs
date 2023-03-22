@@ -274,6 +274,16 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
     wModel.Wires
     |> Map.filter matchInputOutputPorts
 
+let getSelectedEdgeWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol) (e1: Edge) (e2: Edge): Map<ConnectionId, Wire> =
+    let matchEdgeToEdgePorts key value : bool = 
+        let edge1Wires = Map.find e1 s1.PortMaps.Order
+        let edge2Wires = Map.find e2 s2.PortMaps.Order
+        ((List.contains (string value.OutputPort) edge1Wires || List.contains (string value.InputPort) edge1Wires)
+        &&
+        (List.contains (string value.OutputPort) edge2Wires) || List.contains (string value.InputPort) edge2Wires)
+    wModel.Wires
+    |> Map.filter matchEdgeToEdgePorts
+
 
 /// lenses used to edit symbols 
 /// HLP23: should be placed in DrawModelType and CommonTypes (I didn't want to change too many files so they are 
@@ -393,6 +403,20 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
         | true  -> Some orientation
         | false -> crossesBBox startPos endPos bBox
 
+/// Function that will determine if a symbol overlaps with any other symbols in the model.
+/// It takes the symbol and the model as inputs. It also needs Sheet.boxesIntersect as input because this
+/// could not be included in this module because of compilation order problems.
+/// HLP 23: Author Gkamaletsos
+let symbolOverlaps (symbol: Symbol) (model: SymbolT.Model) (boxesIntersect): bool =
+
+    let tmpSymbolMap:Map<ComponentId, Symbol> = Map.remove symbol.Id model.Symbols
+
+    (false, Map.toList tmpSymbolMap) ||>
+    List.fold (fun state symbol2 ->
+                    state || (boxesIntersect (getSymbolBoundingBox symbol) (getSymbolBoundingBox (snd(symbol2))))
+                )
+
+
 /// This function takes an oldPorts Map, an edge, an order list, and another list, 
 /// and returns a sorted list of strings based on the given order list. If the 
 /// string isn't in the order list, then it will be sorted at the end.
@@ -436,18 +460,20 @@ let findPortIds (wires: Map<ConnectionId,Wire>) : ((string * string) List) =
     |> Seq.toList
     |> List.map matching
 
-/// This function takes a list of edges and a list of ports needed, and returns a 
-/// Map of each edge to a list of ports connected to that edge. The returned Map 
-/// is grouped based on the side of the edge (Top, Bottom, Left, or Right).
+/// This function takes a list of edges and a corresponding list of ports needed, 
+/// it then groups the string list into a list of all strings that are on a certain 
+/// edge. This returns a Map of each edge to a list of ports connected to that edge. 
+/// The returned Map is grouped based on the side of the edge (Top, Bottom, Left, or Right).
 /// HLP 23: Author Parry
 let groupByEdge (changingEdge: Edge list) (portsNeeded: string list) =
     let makeMapValue (inputList: (Edge*string)list) (edge:Edge) =
-        let outputList = inputList |> List.map (fun (x,y) -> y)
+        let outputList = inputList |> List.map (fun (_,y) -> y)
         edge, (outputList |> List.rev)
     let splitList (originalList: (Edge*string)list) (edge:Edge)=
-        originalList |> List.partition (fun (x,y) -> x = edge) |> (fun (x,y) -> makeMapValue x edge)
+        originalList |> List.partition (fun (x,_) -> x = edge) |> (fun (x,_) -> makeMapValue x edge)
     let sortedList = (changingEdge,portsNeeded) ||> List.map2 (fun s1 s2 -> (s1,s2))
     Map.ofList [splitList sortedList Top ; splitList sortedList Bottom ; splitList sortedList Left ; splitList sortedList Right]
+
     
 /// This function takes a Map of Edge to string lists and returns a list of strings of all ports.
 /// HLP 23: Author Parry
@@ -461,55 +487,16 @@ let getListOfPortsFromMap (mapOfPorts:Map<Edge,string list>):string list =
         | None -> None)
     |> List.sortBy (fun (edge, _) -> edge)
     |> List.collect snd
-    
-/// This function takes two Maps of Edge to string lists, and returns a new Map of Edge to string 
-/// lists where each list is ordered according to the correct order from the correctOrderList.
-/// Makes use of Author Jones' correctOrderingOfList helper function
-/// HLP 23: Author Parry
-let correctOrderingOfPorts 
-    (originalList: Map<Edge, string list>) 
-    (correctOrderList: Map<Edge, string list>) 
-    : Map<Edge, string list> =
-        originalList
-        |> Map.fold (fun acc edge originalPorts -> 
-            let correctPorts = Map.find edge correctOrderList
-            let orderedPorts = correctOrderingOfList originalPorts correctPorts
-            Map.add edge orderedPorts acc) Map.empty
-    
-/// This function takes a list of tuples, where each tuple contains two strings, and a reference 
-/// list, and returns a list of strings sorted according to the order of the reference list.
-/// HLP 23: Author Parry
-let sortTupleListByNewList (tupleList: List<string*string>) (refList:string list) : string list =
-    let refIndex = Map.ofList (List.mapi (fun i x -> (x, i)) refList)
-    let sortByRefIndex ((x, y): string * string) =
-        match refIndex.TryGetValue x with
-        | true, index -> index, y
-        | _ -> failwith "Element not found in reference list"
-    tupleList |> List.sortBy sortByRefIndex |> List.map snd
-    
-/// This function takes a list of tuples, where each tuple contains two strings, and a reference list, 
-/// and returns a list of strings sorted according to the order of the second string in the tuple.
-/// HLP 23: Author Parry
-let sortTupleListByList (tupleList: List<string*string>) (refList:string list) : string list =
-    let swapList = tupleList |> List.map (fun (x,y) -> y,x)
-    (sortTupleListByNewList swapList refList)
-    
-/// This function takes a list of edges, a reference list, and a list of tuples, where each tuple 
-/// contains a string and an edge. It returns a sorted list of edges according to the order of 
-/// the string in the tuple.
-/// HLP 23: Author Parry
-let sortEdgeByList 
-    (orderEdge: Edge list) 
-    (refList:string list) 
-    (tupleList: List<string*string>) 
-    : Edge list =
-        let refIndex = Map.ofList (List.mapi (fun i x -> (x, i)) refList)
-        let sortByRefIndex ((x, y): string * Edge) =
-            match refIndex.TryGetValue x with
-            | true, index -> index, y
-            | _ -> failwith "Element not found in reference list"
-        ((tupleList |> List.map snd), orderEdge) ||> List.map2 (fun x y -> x,y)
-        |> List.sortBy sortByRefIndex |> List.map snd
+
+type XorY = X | Y
+
+let getEdgePosition symbol edge = 
+    match edge with
+        | Left -> symbol.Pos.X
+        | Right -> symbol.Pos.X + symbol.Component.W * Option.defaultValue 1. symbol.HScale
+        | Top -> symbol.Pos.Y
+        | Bottom -> symbol.Pos.Y - symbol.Component.H * Option.defaultValue 1. symbol.VScale
+
 
 let formatSymbolPopup() : ReactElement =
     let styledSpan styles txt = span [Style styles] [str <| txt]
@@ -523,7 +510,7 @@ let formatSymbolPopup() : ReactElement =
         [
             li [] [str "To use this function, select two symbols, the second symbol to be selected will be moved."]
 
-            li [] [ str "The ports will then be reordered to line up with any connecting ports on the first component."]
+            li [] [ str "The ports will then be reordered on both components so they all line up with each other."]
             
             li [] [str "The symbol will be resized to line up neatly with the first port so the sheet looks tidier."]
             
@@ -537,9 +524,6 @@ let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
     let body = div [] [str "test1"]
     let foot = div [] [str "test2"]
     closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
-
-
-type XorY = X | Y
 
 type PopupChoice = {
     Number: int
@@ -635,7 +619,6 @@ let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: 
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
 
     let body = div [] [str "explanation"]
-
     let (choices: PopupChoice list) =
         [{Number = 1; ButtonColor = IsPrimary; ButtonText = "Resize based on inner ports"};
         {Number = 2; ButtonColor = IsPrimary; ButtonText = "Resize based on outer ports"};
@@ -643,13 +626,33 @@ let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: 
         ]
 
     let buttonAction selectedChoiceNumber dispatch  _ =
-        match selectedChoiceNumber with
-        | 1 -> 
+        let symbolEdgePosDiff1 = abs (getEdgePosition symbol1 edge1 - getEdgePosition symbol2 edge2)
+        let symbolEdgePosDiff2 = abs (getEdgePosition symbol1 edge2 - getEdgePosition symbol2 edge1)
+        printfn "%A" symbolEdgePosDiff1
+        printfn "%A" symbolEdgePosDiff2
+        let newEdge1, newEdge2 = (
+            if symbolEdgePosDiff1 < symbolEdgePosDiff2 then 
+                match edge1 with
+                    | Top | Bottom -> (edge1, edge2)
+                    | Left | Right -> (edge2, edge1)
+            else
+                match edge1 with
+                    | Top | Bottom -> (edge2, edge1)
+                    | Left | Right -> (edge1, edge2)
+        )
+        printfn "edge1: %A, edge2: %A, newedge1: %A, newedge2: %A" edge1 edge2 newEdge1 newEdge2
+        if selectedChoiceNumber = 1 then
+            printfn "True, inner selected"
             dispatch <| ClosePopup
-            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Left, Right)
-        | _ -> 
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, newEdge1, newEdge2)
+        elif selectedChoiceNumber = 2 then
+            printfn "False, outer Selected"
+
             dispatch <| ClosePopup
-            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Right, Left)
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, newEdge2, newEdge1)
+        else
+            dispatch <| ClosePopup
+
 
     multipleChoicePopupFunc
         "Select resize criterion" 
