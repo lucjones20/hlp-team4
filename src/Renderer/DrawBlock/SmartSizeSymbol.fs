@@ -426,6 +426,7 @@ let selectiveResizeSymbol
                 printfn "%A" newVerticalScale
                 ((getSelectedEdgeWires wModel referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge, interModel.Symbol)
                 ||> getPortOffset Y
+                |> getPortOffsetScale Y referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
                 |> updateSymbolPosition rightSymbol' y_
                 |> updateModelSymbols interModel
                 |> fun x -> updateSymbolWires x rightSymbol'.Id)
@@ -436,16 +437,16 @@ let selectiveResizeSymbol
                 let edgePortSizeRef = float (List.length (Map.find edgePortSizeRefEdge referenceSymbol.PortMaps.Order))
                 let edgePortSizeResize = float (List.length (Map.find edgePortSizeResizeEdge symbolToResize.PortMaps.Order))
                 let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.wideGap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.wideGap))
-                // let newHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
-
+                let tmpNewHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
                 let minWidthScale = 
                     getMinimumHeightAndWidth symbolToResize
                     |> snd
                     |> fun x -> x / symbolToResize.Component.W
                 let newHorizontalScale = (
-                    (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
+                    tmpNewHorizontalScale
                     |> max minWidthScale 
                 )
+                let scaleRatio = newHorizontalScale / tmpNewHorizontalScale
                 printfn "minW: %A, newH: %A" minWidthScale newHorizontalScale
                 let rightSymbol' = (
                     Optic.set (hScale_) (Some(newHorizontalScale)) symbolToResize
@@ -453,9 +454,11 @@ let selectiveResizeSymbol
                     |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> x_ ) referenceSymbol.LabelBoundingBox.TopLeft.X
                     // |> Optic.set (portMaps_ >-> order_) symbolToResize.PortMaps.
                 )
-                let interModel = updateModelSymbols wModel [rightSymbol']
-                ((getSelectedEdgeWires wModel referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge, interModel.Symbol)
+                let referenceSymbol' = Optic.map (hScale_) (scaleDimension scaleRatio) referenceSymbol
+                let interModel = updateModelSymbols wModel [rightSymbol'; referenceSymbol']
+                ((getSelectedEdgeWires wModel referenceSymbol' symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge, interModel.Symbol)
                 ||> getPortOffset X
+                |> getPortOffsetScale X referenceSymbol' rightSymbol' edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
                 |> updateSymbolPosition rightSymbol' x_
                 |> updateModelSymbols interModel
                 |> fun x -> updateSymbolWires x rightSymbol'.Id)
