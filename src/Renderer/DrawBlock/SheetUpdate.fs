@@ -757,7 +757,15 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             | Some (s1,s2) ->
                 // added updateSymbolWires to be able to update wires
                 // use of updateSymbolWiresNotSmart because smartAutoroute breaks reSizeSymbol
-                {model with Wire = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires}, Cmd.none
+                let wires = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires
+                match wires.PopupViewFunc with
+                    | None -> {model with Wire = wires}, Cmd.none
+                    | Some(popup) -> 
+                        let myPopupCreationMsg = ShowPopup popup
+                        let myPopupCmd = Cmd.ofMsg myPopupCreationMsg
+                        {model with 
+                            Wire = wires
+                        }, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none
@@ -822,8 +830,6 @@ let init () =
 
     {
         Wire = wireModel
-        PopupViewFunc = None
-        PopupDialogData = {Text=None; Int=None; Int2=None}
         BoundingBoxes = boundingBoxes
         LastValidBoundingBoxes = boundingBoxes
         SelectedComponents = []

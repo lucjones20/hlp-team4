@@ -262,13 +262,13 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
         && ( s2.Component.InputPorts
         |> List.map (fun (x:Port) -> x.Id)
         |> List.contains (string value.InputPort)))
-        //||
-        //((s2.Component.OutputPorts
-        //|> List.map (fun (x:Port) -> x.Id)
-        //|> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
-        //&& ( s1.Component.InputPorts
-        //|> List.map (fun (x:Port) -> x.Id)
-        //|> List.contains (string value.InputPort)))
+        ||
+        ((s2.Component.OutputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
+        && ( s1.Component.InputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.InputPort)))
         //  //check that one of the right symbol's input ports is the wire's input port
     wModel.Wires
     |> Map.filter matchInputOutputPorts
@@ -529,6 +529,13 @@ let formatSymbolPopup() : ReactElement =
             li [] [str "Any wires that cross over the wires between these symbbols will be moved into the neatest ordering." ]
             ]
         ]
+
+open PopupDrawingView
+
+let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
+    let body = div [] [str "test1"]
+    let foot = div [] [str "test2"]
+    closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
 
 let userGuidePopup() : ReactElement =
     let styledSpan styles txt = span [Style styles] [str <| txt]
