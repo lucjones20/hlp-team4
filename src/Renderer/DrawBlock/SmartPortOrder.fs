@@ -68,14 +68,14 @@ let sortTupleListByNewList (tupleList: List<string*string>) (refList:string list
         | true, index -> index, y
         | _ -> failwith "Element not found in reference list"
     tupleList |> List.sortBy sortByRefIndex |> List.map snd
-    
+
 /// This function takes a list of tuples, where each tuple contains two strings, and a reference list, 
 /// and returns a list of strings sorted according to the order of the second string in the tuple.
 /// HLP 23: Author Parry
 let sortTupleListByList (tupleList: List<string*string>) (refList:string list) : string list =
     let swapList = tupleList |> List.map (fun (x,y) -> y,x)
     (sortTupleListByNewList swapList refList)
-    
+
 /// This function takes a list of edges, a reference list, and a list of tuples, where each tuple 
 /// contains a string and an edge. It returns a sorted list of edges according to the order of 
 /// the string in the tuple.
@@ -96,8 +96,8 @@ let sortEdgeByList
 /// To test this, it must be given two symbols interconnected by wires. It then reorders the ports on
 /// symbolToOrder so that the connecting wires do not cross.
 /// Tt should work out the interconnecting wires (wiresToOrder) from 
-////the two symbols, wModel.Wires and sModel.Ports
-/// It will do nothing if symbolToOrder is not a Custom component (which has re-orderable ports).
+/// the two symbols, wModel.Wires and sModel.Ports.
+/// This works on all components.
 let reOrderPorts 
     (wModel: BusWireT.Model) 
     (symbolToOrder: Symbol) 
@@ -113,11 +113,11 @@ let reOrderPorts
     
     
     let portsToGetOrderFrom = connectingPortsIds |> List.map (fun (_,x) -> x)
+    let portsToOrder = connectingPortsIds |> List.map (fun (x,_) -> x)
 
     // These are so the ports can be easily regrouped based on the edge they are on
     let orderOfMovingEdges = 
-        connectingPortsIds 
-        |> List.map (fun (x,_) -> x) 
+        portsToOrder
         |> List.map symbolToOrder.PortMaps.Orientation.TryFind
         |> List.choose id
     let orderOfstaticEdges = 
@@ -137,15 +137,13 @@ let reOrderPorts
     let sortedListOfStaticPorts = SmartHelpers.getListOfPortsFromMap sortedMapOfStaticPorts 
     
     let sortedConnectingPorts = sortTupleListByList connectingPortsIds sortedListOfStaticPorts
-    let newOrderEdge = sortEdgeByList orderOfMovingEdges sortedListOfStaticPorts connectingPortsIds
+    let sortedOrderofMovingEdges = sortEdgeByList orderOfMovingEdges sortedListOfStaticPorts connectingPortsIds
     
-    let changedOrder = SmartHelpers.groupByEdge newOrderEdge sortedConnectingPorts
+    let changedOrder = SmartHelpers.groupByEdge sortedOrderofMovingEdges sortedConnectingPorts
 
     let newOrder = correctOrderingOfPorts oldOrder changedOrder
     let symbol' = {symbolToOrder with PortMaps = {symbolToOrder.PortMaps with Order = newOrder}}
-    // HLP23: This could be cleaned up using Optics - see SmartHelpers for examples
     let newWires =
-        //updateSymbolWires wModel symbolToOrder.Id
         {wModel with 
             Wires = wModel.Wires 
             Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
