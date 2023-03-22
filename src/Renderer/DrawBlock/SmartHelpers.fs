@@ -1,6 +1,7 @@
 ﻿module SmartHelpers
 
 open Elmish
+open Fulma
 open Fable.React.Props
 open Fable.React
 open CommonTypes
@@ -405,6 +406,20 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
         | true  -> Some orientation
         | false -> crossesBBox startPos endPos bBox
 
+/// Function that will determine if a symbol overlaps with any other symbols in the model.
+/// It takes the symbol and the model as inputs. It also needs Sheet.boxesIntersect as input because this
+/// could not be included in this module because of compilation order problems.
+/// HLP 23: Author Gkamaletsos
+let symbolOverlaps (symbol: Symbol) (model: SymbolT.Model) (boxesIntersect): bool =
+
+    let tmpSymbolMap:Map<ComponentId, Symbol> = Map.remove symbol.Id model.Symbols
+
+    (false, Map.toList tmpSymbolMap) ||>
+    List.fold (fun state symbol2 ->
+                    state || (boxesIntersect (getSymbolBoundingBox symbol) (getSymbolBoundingBox (snd(symbol2))))
+                )
+
+
 /// This function takes an oldPorts Map, an edge, an order list, and another list, 
 /// and returns a sorted list of strings based on the given order list. If the 
 /// string isn't in the order list, then it will be sorted at the end.
@@ -448,18 +463,20 @@ let findPortIds (wires: Map<ConnectionId,Wire>) : ((string * string) List) =
     |> Seq.toList
     |> List.map matching
 
-/// This function takes a list of edges and a list of ports needed, and returns a 
-/// Map of each edge to a list of ports connected to that edge. The returned Map 
-/// is grouped based on the side of the edge (Top, Bottom, Left, or Right).
+/// This function takes a list of edges and a corresponding list of ports needed, 
+/// it then groups the string list into a list of all strings that are on a certain 
+/// edge. This returns a Map of each edge to a list of ports connected to that edge. 
+/// The returned Map is grouped based on the side of the edge (Top, Bottom, Left, or Right).
 /// HLP 23: Author Parry
 let groupByEdge (changingEdge: Edge list) (portsNeeded: string list) =
     let makeMapValue (inputList: (Edge*string)list) (edge:Edge) =
-        let outputList = inputList |> List.map (fun (x,y) -> y)
+        let outputList = inputList |> List.map (fun (_,y) -> y)
         edge, (outputList |> List.rev)
     let splitList (originalList: (Edge*string)list) (edge:Edge)=
-        originalList |> List.partition (fun (x,y) -> x = edge) |> (fun (x,y) -> makeMapValue x edge)
+        originalList |> List.partition (fun (x,_) -> x = edge) |> (fun (x,_) -> makeMapValue x edge)
     let sortedList = (changingEdge,portsNeeded) ||> List.map2 (fun s1 s2 -> (s1,s2))
     Map.ofList [splitList sortedList Top ; splitList sortedList Bottom ; splitList sortedList Left ; splitList sortedList Right]
+
     
 /// This function takes a Map of Edge to string lists and returns a list of strings of all ports.
 /// HLP 23: Author Parry
@@ -536,14 +553,107 @@ let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
     let foot = div [] [str "test2"]
     closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
 
+type PopupChoice = {
+    Number: int
+    ButtonColor: IColor
+    ButtonText: string
+}
+
+// let getEdgePosition e1 e2 (xy: XorY) wModel referenceSymbol symbolToResize = 
+//     (Map.tryFind e1 referenceSymbol.PortMaps.Order, M)
+
+let multipleChoicePopupFunc
+        title 
+        (body:(Msg->Unit)->ReactElement) 
+        (choices: PopupChoice list)
+        (buttonAction: int -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
+    let foot dispatch =
+        let leftChildren =
+           [div [] (choices
+           |> List.mapi(fun i choice ->
+                      div [] [Level.item [] [
+                                  Button.button [
+                                      Button.Color choice.ButtonColor
+                                      Button.OnClick (buttonAction choice.Number dispatch)
+                                  ] [ str choice.ButtonText ]
+                              ];
+                           br [] ]
+                    )
+                )]
+        Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
+            Level.left [] leftChildren
+            Level.right [] []
+        ]
+
+    closablePopupFunc title body foot []
+
+
+//let multipleChoicePopupFuncTest
+    //    title 
+    //    (body:(Msg->Unit)->ReactElement) 
+    //    (choices: PopupChoice list)
+    //    (buttonAction: int -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
+    //let foot dispatch =
+    //    let leftChildren =
+    //       [div [] (choices
+    //       //|> List.filter (fun c -> c.Number % 2 = 0)
+    //       |> List.mapi(fun i choice ->
+    //              match i % 2, i = List.length choices - 1 with
+    //              | 1 , true ->
+    //                   div [] []
+    //              | 0, _ -> 
+    //                  div [] [Level.item [] [
+    //                              Button.button [
+    //                                  Button.Color choice.ButtonColor
+    //                                  Button.OnClick (buttonAction choice.Number dispatch)
+    //                              ] [ str choice.ButtonText ]
+    //                          ]
+    //                         ]
+                   
+    //              | _  ->
+    //                   div [] [ br [] ]
+    //                )
+    //            )]
+
+    //    let rightChildren =
+    //       [div [] (choices
+    //       //|> List.filter (fun c -> c.Number % 2 = 0)
+    //       |> List.tail
+    //       |> List.mapi(fun i choice ->
+    //              match i % 2 with
+    //              | 0 -> 
+    //                  div [] [Level.item [] [
+    //                              Button.button [
+    //                                  Button.Color choice.ButtonColor
+    //                                  Button.OnClick (buttonAction choice.Number dispatch)
+    //                              ] [ str choice.ButtonText ]
+    //                          ]
+    //                         ]
+                           
+    //              | _  ->
+    //                   div [] [ br [] ]
+    //                )
+    //            )]
+                
+    //    Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
+    //        Level.left [] leftChildren
+    //        Level.right [] rightChildren
+    //    ]
+
+    //closablePopupFunc title body foot []
 
 
 let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: Edge)
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
 
-    let body = div [] [str "body"]
+    let body = div [] [str "explanation"]
+    let (choices: PopupChoice list) =
+        [{Number = 1; ButtonColor = IsPrimary; ButtonText = "Resize based on inner ports"};
+        {Number = 2; ButtonColor = IsPrimary; ButtonText = "Resize based on outer ports"};
+        {Number = 3; ButtonColor = IsLight; ButtonText = "Cancel resize"};
+        ]
 
-    let buttonAction innerSelected dispatch  _ =
+    let buttonAction selectedChoiceNumber dispatch  _ =
         let symbolEdgePosDiff1 = abs (getEdgePosition symbol1 edge1 - getEdgePosition symbol2 edge2)
         let symbolEdgePosDiff2 = abs (getEdgePosition symbol1 edge2 - getEdgePosition symbol2 edge1)
         printfn "%A" symbolEdgePosDiff1
@@ -559,20 +669,23 @@ let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: 
                     | Left | Right -> (edge1, edge2)
         )
         printfn "edge1: %A, edge2: %A, newedge1: %A, newedge2: %A" edge1 edge2 newEdge1 newEdge2
-        if innerSelected then
+        if selectedChoiceNumber = 1 then
             printfn "True, inner selected"
             dispatch <| ClosePopup
             dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, newEdge1, newEdge2)
-        else
+        elif selectedChoiceNumber = 2 then
             printfn "False, outer Selected"
+
             dispatch <| ClosePopup
             dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, newEdge2, newEdge1)
+        else
+            dispatch <| ClosePopup
 
-    choicePopupFunc 
+
+    multipleChoicePopupFunc
         "Select resize criterion" 
         (fun _ -> body)
-        "Resize based on inner ports" 
-        "Resize based on outer ports" 
+        choices
         buttonAction 
     |> Some
 
