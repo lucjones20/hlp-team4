@@ -799,7 +799,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
          |> function
             | Some (s1,s2) ->
                 let reorder = SmartPortOrder.reOrderPorts model.Wire s1 s2 BusWireUpdate.updateSymbolWires
-                let resize = SmartSizeSymbol.reSizeSymbol reorder s1 s2 BusWireUpdate.updateSymbolWires
+                let resize = SmartSizeSymbol.reSizeSymbol reorder s1 s2 BusWireUpdate.updateSymbolWires Sheet.boxesIntersect
                 //let resize = SmartSizeSymbol.selectiveResizeSymbol reorder s2 s1 Left Right BusWireUpdate.updateSymbolWires
                 let bBoxes = model.BoundingBoxes
                 let rechannel = 

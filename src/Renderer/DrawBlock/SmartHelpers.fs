@@ -402,6 +402,14 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
         | true  -> Some orientation
         | false -> crossesBBox startPos endPos bBox
 
+/// Function
+let symbolOverlaps (symbol: Symbol) (model: SymbolT.Model) (boxesIntersect): bool =
+
+    let tmpSymbolMap:Map<ComponentId, Symbol> = Map.remove symbol.Id model.Symbols
+
+    (false, Map.toList tmpSymbolMap) ||> List.fold (fun state symbol2 -> state || (boxesIntersect (getSymbolBoundingBox symbol) (getSymbolBoundingBox (snd(symbol2)))))
+
+
 /// This function takes an oldPorts Map, an edge, an order list, and another list, 
 /// and returns a sorted list of strings based on the given order list. If the 
 /// string isn't in the order list, then it will be sorted at the end.
