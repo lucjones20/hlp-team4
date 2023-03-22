@@ -402,6 +402,20 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
         | true  -> Some orientation
         | false -> crossesBBox startPos endPos bBox
 
+/// Function that will determine if a symbol overlaps with any other symbols in the model.
+/// It takes the symbol and the model as inputs. It also needs Sheet.boxesIntersect as input because this
+/// could not be included in this module because of compilation order problems.
+/// HLP 23: Author Gkamaletsos
+let symbolOverlaps (symbol: Symbol) (model: SymbolT.Model) (boxesIntersect): bool =
+
+    let tmpSymbolMap:Map<ComponentId, Symbol> = Map.remove symbol.Id model.Symbols
+
+    (false, Map.toList tmpSymbolMap) ||>
+    List.fold (fun state symbol2 ->
+                    state || (boxesIntersect (getSymbolBoundingBox symbol) (getSymbolBoundingBox (snd(symbol2))))
+                )
+
+
 /// This function takes an oldPorts Map, an edge, an order list, and another list, 
 /// and returns a sorted list of strings based on the given order list. If the 
 /// string isn't in the order list, then it will be sorted at the end.

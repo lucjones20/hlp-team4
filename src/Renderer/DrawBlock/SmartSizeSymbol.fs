@@ -283,6 +283,7 @@ let reSizeSymbol
     (symbolToSize: Symbol) 
     (otherSymbol: Symbol) 
     (updateSymbolWires)
+    (boxesIntercect)
      =
 
     getCase wModel symbolToSize otherSymbol
@@ -320,6 +321,9 @@ let reSizeSymbol
                         
                         // update the model with the new symbol
                         let interModel = updateModelSymbols wModel [rightSymbol']
+                        if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect
+                        then printfn "Overlap Detected"
+                        else printfn "no overlap"
                         
 
                         // currently the model would move the symbols so that the top of the symbols are on the same line 
