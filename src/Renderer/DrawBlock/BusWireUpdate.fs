@@ -506,7 +506,14 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                 Map.add wid wire' wires)
 
         {model with Wires = newWires}, Cmd.none
-
+    | SelectiveResize (s1, s2) -> 
+        //|> function 
+        //    | Some (s1, s2) -> 
+        let wires = SmartSizeSymbol.selectiveResizeSymbol model s2 s1 Left Right updateSymbolWires
+        wires, Cmd.none
+            //| _ -> printfn "error for selective" ; model, Cmd.none 
+        // let wires = SmartSizeSymbol.selectiveResizeSymbol model.Wire symbol1 symbol2 edge1 edge2 BusWireUpdate.updateSymbolWires
+        // {model with Wire = wires}, Cmd.none
 
 //---------------------------------------------------------------------------------//        
 //---------------------------Other interface functions-----------------------------//

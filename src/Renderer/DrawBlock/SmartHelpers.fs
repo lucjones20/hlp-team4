@@ -547,9 +547,11 @@ let resizeSelectPopup //(symbol1: Symbol) (symbol2: Symbol)
         if innerSelected then
             printfn "True, inner selected"
             dispatch <| ClosePopup
+            dispatch <| BusWireT.SelectiveResize
         else
             printfn "False, outer Selected"
             dispatch <| ClosePopup
+            dispatch <| BusWireT.SelectiveResize
 
     choicePopupFunc 
         "Select resize criterion" 

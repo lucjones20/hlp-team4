@@ -373,6 +373,7 @@ module BusWireT =
         | ClosePopup
         | SetPopupDialogText of string option
         | SetPopupDialogInt of int option
+        | SelectiveResize of SymbolT.Symbol * SymbolT.Symbol
 
 
 
@@ -539,7 +540,7 @@ module SheetT =
         | TestPortPosition
         | TestFormatSymbol
         // | SelectiveResize of Edge * Edge * SymbolT.Symbol * SymbolT.Symbol
-        |SelectiveResize
+        //|SelectiveResize
 
 
     type ReadLog = | ReadLog of int
