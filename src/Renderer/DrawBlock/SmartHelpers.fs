@@ -473,55 +473,6 @@ let getListOfPortsFromMap (mapOfPorts:Map<Edge,string list>):string list =
         | None -> None)
     |> List.sortBy (fun (edge, _) -> edge)
     |> List.collect snd
-    
-/// This function takes two Maps of Edge to string lists, and returns a new Map of Edge to string 
-/// lists where each list is ordered according to the correct order from the correctOrderList.
-/// Makes use of Author Jones' correctOrderingOfList helper function
-/// HLP 23: Author Parry
-let correctOrderingOfPorts 
-    (originalList: Map<Edge, string list>) 
-    (correctOrderList: Map<Edge, string list>) 
-    : Map<Edge, string list> =
-        originalList
-        |> Map.fold (fun acc edge originalPorts -> 
-            let correctPorts = Map.find edge correctOrderList
-            let orderedPorts = correctOrderingOfList originalPorts correctPorts
-            Map.add edge orderedPorts acc) Map.empty
-    
-/// This function takes a list of tuples, where each tuple contains two strings, and a reference 
-/// list, and returns a list of strings sorted according to the order of the reference list.
-/// HLP 23: Author Parry
-let sortTupleListByNewList (tupleList: List<string*string>) (refList:string list) : string list =
-    let refIndex = Map.ofList (List.mapi (fun i x -> (x, i)) refList)
-    let sortByRefIndex ((x, y): string * string) =
-        match refIndex.TryGetValue x with
-        | true, index -> index, y
-        | _ -> failwith "Element not found in reference list"
-    tupleList |> List.sortBy sortByRefIndex |> List.map snd
-    
-/// This function takes a list of tuples, where each tuple contains two strings, and a reference list, 
-/// and returns a list of strings sorted according to the order of the second string in the tuple.
-/// HLP 23: Author Parry
-let sortTupleListByList (tupleList: List<string*string>) (refList:string list) : string list =
-    let swapList = tupleList |> List.map (fun (x,y) -> y,x)
-    (sortTupleListByNewList swapList refList)
-    
-/// This function takes a list of edges, a reference list, and a list of tuples, where each tuple 
-/// contains a string and an edge. It returns a sorted list of edges according to the order of 
-/// the string in the tuple.
-/// HLP 23: Author Parry
-let sortEdgeByList 
-    (orderEdge: Edge list) 
-    (refList:string list) 
-    (tupleList: List<string*string>) 
-    : Edge list =
-        let refIndex = Map.ofList (List.mapi (fun i x -> (x, i)) refList)
-        let sortByRefIndex ((x, y): string * Edge) =
-            match refIndex.TryGetValue x with
-            | true, index -> index, y
-            | _ -> failwith "Element not found in reference list"
-        ((tupleList |> List.map snd), orderEdge) ||> List.map2 (fun x y -> x,y)
-        |> List.sortBy sortByRefIndex |> List.map snd
 
 type XorY = X | Y
 
@@ -570,7 +521,7 @@ let formatSymbolPopup() : ReactElement =
         [
             li [] [str "To use this function, select two symbols, the second symbol to be selected will be moved."]
 
-            li [] [ str "The ports will then be reordered to line up with any connecting ports on the first component."]
+            li [] [ str "The ports will then be reordered on both components so they all line up with each other."]
             
             li [] [str "The symbol will be resized to line up neatly with the first port so the sheet looks tidier."]
             
