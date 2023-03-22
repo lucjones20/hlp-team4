@@ -1,6 +1,7 @@
 ﻿module SmartHelpers
 
 open Elmish
+open Fulma
 open Fable.React.Props
 open Fable.React
 open CommonTypes
@@ -538,7 +539,34 @@ let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
     closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
 
 
-let resizeSelectPopup //(symbol1: Symbol) (symbol2: Symbol)
+let multipleChoicePopupFunc 
+        title 
+        (body:(Msg->Unit)->ReactElement) 
+        buttonTrueText 
+        buttonFalseText 
+        (buttonAction: bool -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
+    let foot dispatch =
+        Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
+            Level.left [] []
+            Level.right [] [
+                Level.item [] [
+                    Button.button [
+                        Button.Color IsLight
+                        Button.OnClick (buttonAction false dispatch)
+                    ] [ str buttonFalseText ]
+                ]
+                Level.item [] [
+                    Button.button [
+                        Button.Color IsPrimary
+                        Button.OnClick (buttonAction true dispatch)
+                    ] [ str buttonTrueText ]
+                ]
+            ]
+        ]
+    closablePopupFunc title body foot []
+
+
+let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol)
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
 
     let body = div [] [str "body"]
@@ -547,13 +575,13 @@ let resizeSelectPopup //(symbol1: Symbol) (symbol2: Symbol)
         if innerSelected then
             printfn "True, inner selected"
             dispatch <| ClosePopup
-            dispatch <| BusWireT.SelectiveResize
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2)
         else
             printfn "False, outer Selected"
             dispatch <| ClosePopup
-            dispatch <| BusWireT.SelectiveResize
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2)
 
-    choicePopupFunc 
+    multipleChoicePopupFunc 
         "Select resize criterion" 
         (fun _ -> body)
         "Resize based on inner ports" 
