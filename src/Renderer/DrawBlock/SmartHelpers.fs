@@ -542,7 +542,7 @@ let formatSymbolPopup() : ReactElement =
         [
             li [] [str "To use this function, select two symbols, the second symbol to be selected will be moved."]
 
-            li [] [ str "The ports will then be reordered to line up with any connecting ports on the first component."]
+            li [] [ str "The ports will then be reordered on both components so they all line up with each other."]
             
             li [] [str "The symbol will be resized to line up neatly with the first port so the sheet looks tidier."]
             

@@ -240,7 +240,7 @@ let editMenu dispatch' =
                makeItem "TestChannel" None (fun ev -> sheetDispatch SheetT.Msg.TestSmartChannel)
                makeItem "TestResize" None (fun ev -> sheetDispatch SheetT.Msg.TestPortPosition)
                menuSeparator
-               makeItem "FormatSymbol" None (fun ev -> sheetDispatch SheetT.Msg.TestFormatSymbol)
+               makeItem "FormatSymbol" (Some "CmdOrCtrl+F") (fun ev -> sheetDispatch <| SheetT.Msg.TestFormatSymbol)
                // makeItem "TestSelectiveResize" None (fun ev -> sheetDispatch BusWireT.Msg.SelectiveResize )
 
                

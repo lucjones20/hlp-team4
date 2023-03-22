@@ -746,7 +746,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             | Some (s1,s2) ->
                 //let reorderOne = SmartPortOrder.reOrderPorts model.Wire s1 s2 BusWireUpdate.updateSymbolWires
                 let reorderTwo = SmartPortOrder.reOrderPorts model.Wire s2 s1 BusWireUpdate.updateSymbolWires
-                {model with Wire = reorderTwo}, Cmd.none
+                {model with Wire = reorderTwo; UndoList = appendUndoList model.UndoList model}, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none
@@ -818,7 +818,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                                     SmartChannel.smartChannelRoute Horizontal channel resize
                        | Some channel ->
                             SmartChannel.smartChannelRoute Vertical channel resize
-                {model with Wire = rechannel}, Cmd.none
+                {model with Wire = rechannel; UndoList = appendUndoList model.UndoList model}, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none
