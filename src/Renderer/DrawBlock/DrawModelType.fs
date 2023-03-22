@@ -538,6 +538,7 @@ module SheetT =
         | TestSmartChannel
         | TestPortPosition
         | TestFormatSymbol
+        | SelectiveResize of Edge * Edge * SymbolT.Symbol * SymbolT.Symbol
 
 
     type ReadLog = | ReadLog of int
