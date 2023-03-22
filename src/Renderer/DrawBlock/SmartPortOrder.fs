@@ -22,6 +22,28 @@ open Operators
     functions for this purpose.
 *)
 
+/// returns a map of the wires connected from s1 to s2
+/// note that the order of the symbols matters: s1 is the output and s2 is the input
+/// HLP23: AUTHOR Jones
+let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): Map<ConnectionId, Wire> = 
+    let matchInputOutputPorts key value : bool= 
+        ((s1.Component.OutputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
+        && ( s2.Component.InputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.InputPort)))
+        //||
+        //((s2.Component.OutputPorts
+        //|> List.map (fun (x:Port) -> x.Id)
+        //|> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
+        //&& ( s1.Component.InputPorts
+        //|> List.map (fun (x:Port) -> x.Id)
+        //|> List.contains (string value.InputPort)))
+        ////  //check that one of the right symbol's input ports is the wire's input port
+    wModel.Wires
+    |> Map.filter matchInputOutputPorts
+
 /// To test this, it must be given two symbols interconnected by wires. It then reorders the ports on
 /// symbolToOrder so that the connecting wires do not cross.
 /// Tt should work out the interconnecting wires (wiresToOrder) from 
@@ -34,8 +56,8 @@ let reOrderPorts
     (updateSymbolWires)
         : BusWireT.Model =
     let sModel = wModel.Symbol
-    let connectingOutputPorts = SmartHelpers.getSelectedSymbolWires wModel symbolToOrder otherSymbol
-    let connectingInputPorts = SmartHelpers.getSelectedSymbolWires wModel otherSymbol symbolToOrder
+    let connectingOutputPorts = getSelectedSymbolWires wModel symbolToOrder otherSymbol
+    let connectingInputPorts = getSelectedSymbolWires wModel otherSymbol symbolToOrder
     let connectingOutputPortsIds = SmartHelpers.findPortIds connectingOutputPorts
     let connectingInputPortsIds = 
         SmartHelpers.findPortIds connectingInputPorts
@@ -73,9 +95,7 @@ let reOrderPorts
     let newWires =
         //updateSymbolWires wModel symbolToOrder.Id
         {wModel with 
-            Wires = wModel.Wires // no change for now, but probably this function should use update wires after reordering.
-                                    // to make that happen the test function which calls this would need to provide an updateWire
-                                    // function to this as a parameter (as was done in Tick3)
+            Wires = wModel.Wires 
             Symbol = {sModel with Symbols = Map.add symbol'.Id symbol' sModel.Symbols}
         }
     
