@@ -96,8 +96,8 @@ let sortEdgeByList
 /// To test this, it must be given two symbols interconnected by wires. It then reorders the ports on
 /// symbolToOrder so that the connecting wires do not cross.
 /// Tt should work out the interconnecting wires (wiresToOrder) from 
-////the two symbols, wModel.Wires and sModel.Ports
-/// It will do nothing if symbolToOrder is not a Custom component (which has re-orderable ports).
+/// the two symbols, wModel.Wires and sModel.Ports.
+/// This works on all components.
 let reOrderPorts 
     (wModel: BusWireT.Model) 
     (symbolToOrder: Symbol) 
