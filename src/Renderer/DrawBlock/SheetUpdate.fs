@@ -818,6 +818,16 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none
+    // | SelectiveResize (edge1, edge2, symbol1, symbol2) -> 
+    | SelectiveResize -> 
+        validateTwoSelectedSymbols model
+        |> function 
+            | Some (s1, s2) -> 
+                let wires = SmartSizeSymbol.selectiveResizeSymbol model.Wire s2 s1 Left Right BusWireUpdate.updateSymbolWires
+                {model with Wire = wires}, Cmd.none
+            | _ -> printfn "error for selective" ; model, Cmd.none 
+        // let wires = SmartSizeSymbol.selectiveResizeSymbol model.Wire symbol1 symbol2 edge1 edge2 BusWireUpdate.updateSymbolWires
+        // {model with Wire = wires}, Cmd.none
 
     | ToggleNet _ | DoNothing | _ -> model, Cmd.none
     |> Optic.map fst_ postUpdateChecks
