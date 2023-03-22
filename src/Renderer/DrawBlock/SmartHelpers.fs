@@ -110,6 +110,9 @@ let updateModelWires
         ||> List.fold (fun wireMap wireToAdd -> Map.add wireToAdd.WId wireToAdd wireMap))
 
 
+module Constants = 
+    let portTextCharWidth = 8.
+
 
 /// Find the Y position of input ports for a given symbol
 /// Function takes in a SymbolT model and a symbol
@@ -528,6 +531,31 @@ let getEdgePosition symbol edge =
         | Right -> symbol.Pos.X + symbol.Component.W * Option.defaultValue 1. symbol.HScale
         | Top -> symbol.Pos.Y
         | Bottom -> symbol.Pos.Y - symbol.Component.H * Option.defaultValue 1. symbol.VScale
+
+let getTotalLengthFromPortLabels portList = 
+    let labelLengths = (
+        List.map String.length portList
+        |> List.map (float)
+    )
+    (0., labelLengths)
+    ||> List.fold (fun acc e -> acc + e)
+    |> (*) Constants.portTextCharWidth
+
+let getMinimumHeightAndWidth symbol = 
+    let portIdMap = getCustomPortIdMap symbol.Component
+    let portMaps = makeMapsConsistent portIdMap symbol
+    let convertIdsToLbls currMap edge idList =
+        let lblLst = List.map (fun id -> portIdMap[id]) idList
+        Map.add edge lblLst currMap
+    let portLabels = 
+        (Map.empty, portMaps.Order) ||> Map.fold convertIdsToLbls
+    let minTopWidth = getTotalLengthFromPortLabels portLabels[Top]
+    let minBottomWidth = getTotalLengthFromPortLabels portLabels[Bottom]
+    let minLeftHeight = getTotalLengthFromPortLabels portLabels[Left]
+    let minRightHeight = getTotalLengthFromPortLabels portLabels[Right]
+    let minWidth = max minTopWidth minBottomWidth
+    let minHeight = max minLeftHeight minRightHeight
+    minHeight, minWidth
 
 
 let formatSymbolPopup() : ReactElement =
