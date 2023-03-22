@@ -761,12 +761,13 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                 // use of updateSymbolWiresNotSmart because smartAutoroute breaks reSizeSymbol
                 let wires = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires
                 match wires.PopupViewFunc with
-                    | None -> {model with Wire = wires}, Cmd.none
+                    | None -> {model with Wire = wires; UndoList = appendUndoList model.UndoList model}, Cmd.none
                     | Some(popup) -> 
                         let myPopupCreationMsg = ShowPopup popup
                         let myPopupCmd = Cmd.ofMsg myPopupCreationMsg
                         {model with 
                             Wire = wires
+                            UndoList = appendUndoList model.UndoList model
                         }, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
@@ -788,10 +789,10 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                                 printfn "Symbols are not oriented for either a vertical or horizontal channel"
                                 model, Cmd.none
                            | Some channel ->
-                                {model with Wire = SmartChannel.smartChannelRoute Horizontal channel model.Wire}, Cmd.none
+                                {model with Wire = SmartChannel.smartChannelRoute Horizontal channel model.Wire; UndoList = appendUndoList model.UndoList model}, Cmd.none
 
                    | Some channel ->
-                        {model with Wire = SmartChannel.smartChannelRoute Vertical channel model.Wire}, Cmd.none
+                        {model with Wire = SmartChannel.smartChannelRoute Vertical channel model.Wire; UndoList = appendUndoList model.UndoList model}, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none   
