@@ -800,6 +800,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             | Some (s1,s2) ->
                 let reorder = SmartPortOrder.reOrderPorts model.Wire s1 s2 BusWireUpdate.updateSymbolWires
                 let resize = SmartSizeSymbol.reSizeSymbol reorder s1 s2 BusWireUpdate.updateSymbolWires
+                //let resize = SmartSizeSymbol.selectiveResizeSymbol reorder s2 s1 Left Right BusWireUpdate.updateSymbolWires
                 let bBoxes = model.BoundingBoxes
                 let rechannel = 
                     getVerticalChannel bBoxes[s1.Id] bBoxes[s2.Id]
