@@ -541,6 +541,11 @@ let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
 
 type XorY = X | Y
 
+type PopupChoice = {
+    Number: int
+    ButtonColor: IColor
+}
+
 // let getEdgePosition e1 e2 (xy: XorY) wModel referenceSymbol symbolToResize = 
 //     (Map.tryFind e1 referenceSymbol.PortMaps.Order, M)
 
@@ -548,25 +553,21 @@ let multipleChoicePopupFunc
         title 
         (body:(Msg->Unit)->ReactElement) 
         buttonTrueText 
-        buttonFalseText 
-        (buttonAction: bool -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
+        buttonFalseText
+        (choices: PopupChoice list)
+        (buttonAction: int -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
     let foot dispatch =
+        let rightChildren =
+           choices //a list of Button Colors for each choice
+           |> List.map(fun choice -> Level.item [] [
+                          Button.button [
+                              Button.Color choice.ButtonColor
+                              Button.OnClick (buttonAction choice.Number dispatch)
+                          ] [ str buttonFalseText ]
+                      ])
         Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
             Level.left [] []
-            Level.right [] [
-                Level.item [] [
-                    Button.button [
-                        Button.Color IsLight
-                        Button.OnClick (buttonAction false dispatch)
-                    ] [ str buttonFalseText ]
-                ]
-                Level.item [] [
-                    Button.button [
-                        Button.Color IsPrimary
-                        Button.OnClick (buttonAction true dispatch)
-                    ] [ str buttonTrueText ]
-                ]
-            ]
+            Level.right [] rightChildren
         ]
     closablePopupFunc title body foot []
 
@@ -576,21 +577,27 @@ let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: 
 
     let body = div [] [str "body"]
 
-    let buttonAction innerSelected dispatch  _ =
-        if innerSelected then
+    let (choices: PopupChoice list) = [{Number = 1; ButtonColor = IsPrimary}; {Number = 2; ButtonColor = IsPrimary}; {Number = 3; ButtonColor = IsLight}]
+    let buttonAction selectedChoiceNumber dispatch  _ =
+        match selectedChoiceNumber with
+        | 1 -> 
             printfn "True, inner selected"
             dispatch <| ClosePopup
             dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Left, Right)
-        else
+        | 2 -> 
             printfn "False, outer Selected"
             dispatch <| ClosePopup
             dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, Right, Left)
+        | _ ->
+            printfn "action canceled"
+            dispatch <| ClosePopup
 
     multipleChoicePopupFunc 
         "Select resize criterion" 
         (fun _ -> body)
         "Resize based on inner ports" 
-        "Resize based on outer ports" 
+        "Resize based on outer ports"
+        choices
         buttonAction 
     |> Some
 
