@@ -346,7 +346,7 @@ module BusWireT =
     //----------------------------Message Type-----------------------------------//
     
     /// BusWire messages: see BusWire.update for more info
-    and Msg =
+    type Msg =
         | Symbol of SymbolT.Msg // record containing messages from Symbol module
         | AddWire of (InputPortId * OutputPortId) // add a new wire between these ports to the model
         | BusWidths
