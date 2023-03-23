@@ -9,11 +9,13 @@ After selecting 2 symbols, press Ctrl-Shift-F or Cmd-Shift-F to format the symbo
 ### Resize Symbols
 
 It is possible to call only resize symbol. The resize symbol also has the conflicting and overlapping mechanism that format symbol has.
+* if there are no wires connecting the two symbols then nothing happens
+* if there is only one wire connecting the symbols then nothing happens
 * works for any orientation
 * works with wires that have input and output on the same side of a symbol
 * works if the symbols have scales different from 1
 * if the wiring is complicated, a popup will ask for clarification for which way the symbols have to be resized
-* if the resize will mean that the symbol now overlaps with another symbol, you will be notified (currently only in the console)
+* if the resize will mean that the symbol now overlaps with another symbol it tries to resiize the other symbol, and if that one overlaps too, you will be notified (currently only in the console)
 
 ### Smart Channel
 
