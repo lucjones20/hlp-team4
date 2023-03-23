@@ -23,6 +23,7 @@ Rearange the wires inside a channel
 ### Smart Port Reordering
 
 Reorder the ports of the first symbol that was selected. 
+* menu item for calling port reordering separately
 * works very well with all ports that are opposite each other
 * works well with ports that are on the far side of symbols opposite each other
 * doesn't sort ports that are connected to different edges of symbols to each other (i.e won't sort a port right-top with a port right-left)
