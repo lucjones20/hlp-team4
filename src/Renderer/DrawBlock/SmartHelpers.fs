@@ -115,28 +115,6 @@ module Constants =
     let portTextCharWidth = 8.
 
 
-/// Find the Y position of input ports for a given symbol
-/// Function takes in a SymbolT model and a symbol
-/// This uses the getPortLocation from the Symbol module and applies it to the
-/// list of port ids located on the left side of the module
-/// HLP23: AUTHOR Jones
-let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list = 
-    symbol.PortMaps.Order.TryFind Left // try to get list of port ids of the symbol
-    |> Option.defaultValue [] // extract the list from option
-    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto the list of port ids
-
-
-/// Find the Y position of output ports of a given symbol
-/// Function takes in a SymbolT model and a symbol
-/// This uses the getPortLocation from the Symbol module and applies it to the
-/// list of port ids located on the right side of the module
-/// HLP23: AUTHOR Jones
-let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list= 
-    symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
-    |> Option.defaultValue [] // extract list from option
-    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
- 
-
 /// Find the orientation of a wire segment given its index
 ///HLP23: AUTHOR Sougioultzoglou
 let findSegmentOrientation (wire: Wire) (segmentIndex: int)
@@ -347,21 +325,6 @@ let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol)
     |> function 
         |(Some(_), Some(_)) -> (s1,s2)
         | _ -> (s2, s1)
-
-
-//type ResizeScenario = |Horizontal | Vertical | Mixed
-
-//type ResizeScenario = |HorizontalResize | Verticalresize | MixedResize
-
-
-// change name
-let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
-    wires
-    |> Map.values
-    |> Seq.map (fun x -> (x.OutputPort, x.InputPort))
-    |> Seq.map (fun (op,ip) -> (Map.find (string op) referenceSymbol.PortMaps.Orientation), (Map.find (string ip) symbolToResize.PortMaps.Orientation))
-    |> Seq.map (fun (e1, e2) -> e1 = e2)
-    |> Seq.reduce(||)
 
 
 /// Function to determine if a point is within a Bounding Box.
