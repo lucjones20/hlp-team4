@@ -4,7 +4,7 @@
 
 ### Format Symbols
 
-After selecting 2 symbols, press Ctrl-Shift-F or Cmd-Shift-F to format the symbols. This will reorder the ports on both the symbols, then resize the symbol so that all the wires are parallel and the it will clean up the wires in between the two symbols if there are any more wires. If the two symbols are connected in a conflicting way, a popup will give you the choice to either resize from the inner ports or the outer ports. We can also detect whether or not the symbol that is being resized overlaps with any other symbol (currently only prints on the dev console but hopefully we will have a popup by the deadline). 
+After selecting 2 symbols, press Ctrl-Shift-F or Cmd-Shift-F to format the symbols. This will reorder the ports on both the symbols, then resize the symbol so that all the wires are parallel and the it will clean up the wires in between the two symbols if there are any more wires. If the two symbols are connected in a conflicting way, a popup will give you the choice to either resize from the inner ports or the outer ports. We can also detect whether or not the symbol that is being resized overlaps with any other symbol. A popup was made that ask the user what ports the resize should be based on, or if he would like the resize not to occur at all. 
 
 ### Resize Symbols
 
