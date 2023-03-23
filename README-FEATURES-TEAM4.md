@@ -18,6 +18,7 @@ It is possible to call only resize symbol. The resize symbol also has the confli
 ### Smart Channel
 
 Rearange the wires inside a channel
+* menu item for calling smart channel separately
 
 
 ### Smart Port Reordering
