@@ -609,7 +609,7 @@ let multipleChoicePopupFunc
 let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: Edge)
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
 
-    let body = div [] [str "explanation"]
+    let body = div [] [str "This is complex resizing! Would you like to resize based on the inner ports or the outer ports?"]
     let (choices: PopupChoice list) =
         [{Number = 1; ButtonColor = IsPrimary; ButtonText = "Resize based on inner ports"};
         {Number = 2; ButtonColor = IsPrimary; ButtonText = "Resize based on outer ports"};
