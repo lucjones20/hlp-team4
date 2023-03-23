@@ -4,7 +4,7 @@
 
 ### Format Symbols
 
-After selecting 2 symbols, press ctl-F or cmd-Shift-F to format the symbols. This will reorder the ports on both the symbols, then resize the symbol so that all the wires are parallel and the it will clean up the wires in between the two symbols if there are any more wires. If the two symbols are connected in a conflicting way, a popup will give you the choice to either resize from the inner ports or the outer ports. We can also detect whether or not the symbol that is being resized overlaps with any other symbol (currently only prints on the dev console but hopefully we will have a popup by the deadline). 
+After selecting 2 symbols, press Ctrl-Shift-F or Cmd-Shift-F to format the symbols. This will reorder the ports on both the symbols, then resize the symbol so that all the wires are parallel and the it will clean up the wires in between the two symbols if there are any more wires. If the two symbols are connected in a conflicting way, a popup will give you the choice to either resize from the inner ports or the outer ports. We can also detect whether or not the symbol that is being resized overlaps with any other symbol (currently only prints on the dev console but hopefully we will have a popup by the deadline). 
 
 ### Resize Symbols
 
@@ -22,4 +22,8 @@ Rearange the wires inside a channel
 
 ### Smart Port Reordering
 
-Reorder the ports of the first symbol that was selectec.
+Reorder the ports of the first symbol that was selected. 
+* works very well with all ports that are opposite each other
+* works well with ports that are on the far side of symbols opposite each other
+* doesn't sort ports that are connected to different edges of symbols to each other (i.e won't sort a port right-top with a port right-left)
+* works on all symbols that can connect multiple ports to another individual symbol
