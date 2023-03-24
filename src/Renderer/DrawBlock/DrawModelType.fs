@@ -257,6 +257,13 @@ module SymbolT =
     
 module BusWireT =
 
+    /// Possible fields that may (or may not) be used in a dialog popup - these can be raised from BusWire or Sheet
+    type PopupDialogData = {
+        Text : string option;
+        Int : int option;
+        Int2: int64 option
+    }
+
     type Orientation = | Vertical | Horizontal
     
     ///
@@ -330,12 +337,16 @@ module BusWireT =
             Notifications: Option<string>
             Type : WireType
             ArrowDisplay: bool
+            PopupViewFunc : ((Msg -> Unit) -> PopupDialogData -> Fable.React.ReactElement) option
+            // data to populate popup (may not all be used)
+            PopupDialogData : PopupDialogData
+
         }
     
     //----------------------------Message Type-----------------------------------//
     
     /// BusWire messages: see BusWire.update for more info
-    type Msg =
+    and Msg =
         | Symbol of SymbolT.Msg // record containing messages from Symbol module
         | AddWire of (InputPortId * OutputPortId) // add a new wire between these ports to the model
         | BusWidths
@@ -357,6 +368,14 @@ module BusWireT =
         | LoadConnections of list<Connection> // For Issie Integration
         | UpdateConnectedWires of list<ComponentId> // rotate each symbol separately. TODO - rotate as group? Custom comps do not rotate
         | RerouteWire of string
+        // ------------------- Popup Dialog Management Messages----------------------//
+        | ShowPopup of ((Msg -> Unit) -> PopupDialogData -> ReactElement)
+        | ClosePopup
+        | SetPopupDialogText of string option
+        | SetPopupDialogInt of int option
+        | SelectiveResize of SymbolT.Symbol * SymbolT.Symbol * Edge * Edge
+
+
 
     open Optics
     open Operators
@@ -443,12 +462,7 @@ module SheetT =
     type IssieInterfaceMsg =
         | ToggleArrows
 
-    /// Possible fields that may (or may not) be used in a dialog popup.
-    type PopupDialogData = {
-        Text : string option;
-        Int : int option;
-        Int2: int64 option
-    }
+
 
     type Arrange = | AlignSymbols | DistributeSymbols
 
@@ -485,11 +499,6 @@ module SheetT =
         | ManualKeyDown of string // For manual key-press checking, e.g. CtrlC
         | CheckAutomaticScrolling
         | DoNothing
-        // ------------------- Popup Dialog Management Messages----------------------//
-        | ShowPopup of ((Msg -> Unit) -> PopupDialogData -> ReactElement)
-        | ClosePopup
-        | SetPopupDialogText of string option
-        | SetPopupDialogInt of int option
         // ------------------- Issie Interface Messages ----------------------
         | InitialiseCreateComponent of LoadedComponent list * ComponentType * string // Need to initialise for drag-and-drop
         | FlushCommandStack
@@ -529,6 +538,9 @@ module SheetT =
         | TestPortReorder
         | TestSmartChannel
         | TestPortPosition
+        | TestFormatSymbol
+        // | SelectiveResize of Edge * Edge * SymbolT.Symbol * SymbolT.Symbol
+        //|SelectiveResize
 
 
     type ReadLog = | ReadLog of int
@@ -541,9 +553,6 @@ module SheetT =
     type Model = {
         Wire: BusWireT.Model
         // function to create popup pane if present
-        PopupViewFunc : ((Msg -> Unit) -> PopupDialogData -> Fable.React.ReactElement) option
-        // data to populate popup (may not all be used)
-        PopupDialogData : PopupDialogData
         BoundingBoxes: Map<CommonTypes.ComponentId, BoundingBox>
         LastValidBoundingBoxes: Map<CommonTypes.ComponentId, BoundingBox>
         SelectedLabel: CommonTypes.ComponentId option

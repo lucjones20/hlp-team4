@@ -72,6 +72,67 @@ let updateSymbolWires (model: Model) (compId: ComponentId) =
         |> Map.ofList
     { model with Wires = newWires }
 
+
+/// Calculates if two bounding boxes intersect by comparing corner coordinates of each box
+let boxesIntersect (box1: BoundingBox) (box2: BoundingBox) =
+    // Requires min and max since H & W can be negative, i.e. we don't know which corner is which automatically
+    // Boxes intersect if there is overlap in both x and y coordinates 
+    min box1.TopLeft.X (box1.TopLeft.X + box1.W) < max box2.TopLeft.X (box2.TopLeft.X + box2.W)
+    && min box2.TopLeft.X (box2.TopLeft.X + box2.W) < max box1.TopLeft.X (box1.TopLeft.X + box1.W)
+    && min box1.TopLeft.Y (box1.TopLeft.Y + box1.H) < max box2.TopLeft.Y (box2.TopLeft.Y + box2.H)
+    && min box2.TopLeft.Y (box2.TopLeft.Y + box2.H) < max box1.TopLeft.Y (box1.TopLeft.Y + box1.H)
+
+/// HLP23: function to update the wires without the use of smartAutoroute as that would break other functionalites
+// let updateWireNotSmart (model : Model) (wire : Wire) (reverse : bool) =
+//     let newPort = 
+//         match reverse with
+//         | true -> Symbol.getInputPortLocation None model.Symbol wire.InputPort
+//         | false -> Symbol.getOutputPortLocation None model.Symbol wire.OutputPort
+//     if reverse then
+//         partialAutoroute model (reverseWire wire) newPort true
+//         |> Option.map reverseWire
+//     else 
+//         partialAutoroute model wire newPort false
+//     |> Option.defaultValue (autoroute model wire)
+
+
+// let updateWiresNotSmart (model : Model) (compIdList : ComponentId list) (diff : XYPos) =
+
+//     let wires = filterWiresByCompMoved model compIdList
+
+//     let newWires =
+//         model.Wires
+//         |> Map.toList
+//         |> List.map (fun (cId, wire) -> 
+//             if List.contains cId wires.Both //Translate wires that are connected to moving components on both sides
+//             then (cId, moveWire wire diff)
+//             elif List.contains cId wires.Inputs //Only route wires connected to ports that moved for efficiency
+//             then (cId, updateWireNotSmart model wire true)
+//             elif List.contains cId wires.Outputs
+//             then (cId, updateWireNotSmart model wire false)
+//             else (cId, wire))
+//         |> Map.ofList
+
+//     { model with Wires = newWires }
+
+// let updateSymbolWiresNotSmart (model: Model) (compId: ComponentId) =
+//     let wires = filterWiresByCompMoved model [compId]
+    
+//     let newWires =
+//         model.Wires
+//         |> Map.toList
+//         |> List.map (fun (cId, wire) ->
+//             if List.contains cId wires.Both then // Update wires that are connected on both sides
+//                 cId, (
+//                     updateWireNotSmart model wire true 
+//                     |> fun wire -> updateWireNotSmart model wire false)
+//             elif List.contains cId wires.Inputs then 
+//                 cId, updateWireNotSmart model wire true
+//             elif List.contains cId wires.Outputs then
+//                 cId, updateWireNotSmart model wire false
+//             else cId, wire)
+//         |> Map.ofList
+//     { model with Wires = newWires }
 //---------------------------------------------------------------------------------//
 //------------------------------BusWire Init & Update functions--------------------//
 //---------------------------------------------------------------------------------//
@@ -89,6 +150,9 @@ let init () =
         Notifications = None
         Type = Constants.initialWireType
         ArrowDisplay = Constants.initialArrowDisplay
+        PopupViewFunc = None
+        PopupDialogData = {Text=None; Int=None; Int2=None}
+
     } , Cmd.none
 
 
@@ -97,6 +161,17 @@ let init () =
 let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
 
     match msg with
+    | SetPopupDialogInt n ->
+        let data = {model.PopupDialogData with Int = n}
+        {model with PopupDialogData = data}, Cmd.none
+    | SetPopupDialogText txt ->
+        let data = {model.PopupDialogData with Text = txt}
+        {model with PopupDialogData = data}, Cmd.none
+    | SetPopupDialogText _ 
+    | ClosePopup ->
+        {model with PopupViewFunc = None}, Cmd.none
+    | ShowPopup popupFun ->
+        {model with PopupViewFunc = Some popupFun}, Cmd.none
     | Symbol sMsg ->
         // update Symbol model with a Symbol message
         let sm,sCmd = SymbolUpdate.update sMsg model.Symbol
@@ -441,7 +516,14 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                 Map.add wid wire' wires)
 
         {model with Wires = newWires}, Cmd.none
-
+    | SelectiveResize (s1, s2, e1, e2) -> 
+        //|> function 
+        //    | Some (s1, s2) -> 
+        let wires = SmartSizeSymbol.selectiveResizeSymbol model s2 s1 e1 e2 updateSymbolWires boxesIntersect
+        wires, Cmd.none
+            //| _ -> printfn "error for selective" ; model, Cmd.none 
+        // let wires = SmartSizeSymbol.selectiveResizeSymbol model symbol1 symbol2 edge1 edge2 BusWireUpdate.updateSymbolWires
+        // {model with Wire = wires}, Cmd.none
 
 //---------------------------------------------------------------------------------//        
 //---------------------------Other interface functions-----------------------------//

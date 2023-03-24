@@ -23,6 +23,7 @@ open SmartHelpers
     this purpose.
 *)
 
+// HLP23: AUTHOR Sougioultzoglou (entire file)
 
 ///The position of a point relative to a channel
 type PosRelativeToChannel = Inside | Outside
@@ -152,12 +153,19 @@ let formSubChannels
                 {TopLeft = tl; W = min range.End (channel.TopLeft.X + channel.W) - tl.X; H = channel.H}
 
         subChannelBBox , allocatedWires
-                            
-    channelWires
-    |> List.map findParallelSegRange
-    |> List.sortBy (fun range -> range.Start)
-    |> findSubChannelRanges
-    |> List.fold (fun subChannels range-> (allocateWires channelWires range)::subChannels) []
+                
+    match (channelWires.IsEmpty) with  
+    | false ->
+        channelWires
+        |> List.map findParallelSegRange
+        |> List.sortBy (fun range -> range.Start)
+        |> findSubChannelRanges
+        |> List.fold (fun subChannels range-> (allocateWires channelWires range)::subChannels) []
+    | true ->
+        channelWires
+        |> List.map findParallelSegRange
+        |> List.sortBy (fun range -> range.Start)
+        |> List.fold (fun subChannels range-> (allocateWires channelWires range)::subChannels) []        
 
 /// Takes in a subChannel (determnied in the smartChannelRoute main function) along with the channel wires which intersect this
 /// subChannel and spaces them out nicely, so that the wires are clearly visible and intersections are avoided (to an extent)
@@ -185,7 +193,7 @@ let routeSubChannelWires
 
     /// Compares wire groups so that they are nicely ordered and spaced out in the sub channel
     /// Intended for use alongside List.sortWith
-    let compareWireGroups (wireGroup1: {|ParallelSegStart: float; Wires: ChannelWire list|})
+    let compareWireGroups (getXorY: (XYPos -> float)) (wireGroup1: {|ParallelSegStart: float; Wires: ChannelWire list|})
         (wireGroup2: {|ParallelSegStart: float; Wires: ChannelWire list|})
         :int =
         let findSegmentLength (segmentIndex: int) (cw: ChannelWire): float =
@@ -201,15 +209,34 @@ let routeSubChannelWires
            wireGroup2.Wires
         |> List.maxBy (fun channelWire ->abs (findSegmentLength channelWire.ParallelSegIndex channelWire))
 
-        let parallelAndPrevSegsSameSign1  = wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
-        let parallelAndPrevSegsSameSign2  = wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
-        match parallelAndPrevSegsSameSign1 , parallelAndPrevSegsSameSign2  with
+        let findRelativePositionsForSort wireWithLongestSeg (wireGroup: {|ParallelSegStart: float; Wires: ChannelWire list|}) =
+            match channelOrientation with
+            | Vertical ->
+                match wireWithLongestSeg.Wire.StartPos.X < wireWithLongestSeg.ParallelSegStartPos.X with
+                | true ->
+                    wireGroup.ParallelSegStart
+                |false ->
+                    wireGroup.ParallelSegStart + wireWithLongestSeg.Wire.Segments[wireWithLongestSeg.ParallelSegIndex].Length
+            | Horizontal ->
+                match wireWithLongestSeg.Wire.StartPos.Y < wireWithLongestSeg.ParallelSegStartPos.Y with
+                | true ->
+                    wireGroup.ParallelSegStart
+                |false ->
+                    wireGroup.ParallelSegStart + wireWithLongestSeg.Wire.Segments[wireWithLongestSeg.ParallelSegIndex].Length
+
+        let parallelAndPrevSegsSameSign1 = wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex].Length * wireWithLongestSeg1.Wire.Segments[wireWithLongestSeg1.ParallelSegIndex - 1].Length > 0
+        let parallelAndPrevSegsSameSign2 = wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex].Length * wireWithLongestSeg2.Wire.Segments[wireWithLongestSeg2.ParallelSegIndex - 1].Length > 0
+
+        let relativeStartPos1 = findRelativePositionsForSort wireWithLongestSeg1 wireGroup1
+        let relativeStartPos2 = findRelativePositionsForSort wireWithLongestSeg2 wireGroup2
+
+        match parallelAndPrevSegsSameSign1 , parallelAndPrevSegsSameSign2 with
         | true, true ->
-            compare (- wireGroup1.ParallelSegStart) (- wireGroup2.ParallelSegStart)
+            compare (- relativeStartPos1) (- relativeStartPos2)
         | true, false -> -1
         | false, true -> 1
         | _ ->
-            compare wireGroup1.ParallelSegStart wireGroup2.ParallelSegStart
+            compare relativeStartPos1 relativeStartPos2
 
     /// Groups the sub-channel wires based on their source ports and either the x or y components of
     /// their starting positions. It then sorts the groups using the compareWireGroups function
@@ -226,7 +253,7 @@ let routeSubChannelWires
         let separationDistance = availabeDistance / (float (List.length groupedChannelWires) + 1.0)
 
         groupedChannelWires
-        |> List.sortWith compareWireGroups
+        |> List.sortWith (compareWireGroups getXorY)
         |> List.mapi (fun i wireGroup -> updateWireGroup wireGroup.Wires channelStartPos separationDistance i)
         |> List.collect id
 
@@ -243,7 +270,7 @@ let routeSubChannelWires
 /// The conditions for a wire to be considered for rerouting are that it should firstly pass
 /// through the channel, have a segment parallel to the channel oriantation that goes through the channel
 /// and also have at least one edge originating from outsdie the channel (i.e it musn't be bounded by the channel).
-///Both autorouted and manually routed wire and are considered
+/// Both autorouted and manually routed wire and are considered
 /// The segment parallel to the channel is the one which will be moved to achieve this better spacing, and for this implementation
 /// only wires with one non zero length parallel segment will be included.
 /// The idea behind the algorithm is to divide the channel into sub channels where the parallel segments of the previously selected wires
@@ -275,4 +302,5 @@ let smartChannelRoute
 
     let subChannels = formSubChannels channelWires channel channelOrientation
     (model, subChannels)
-    ||> List.fold (fun model subChannel -> routeSubChannelWires channelOrientation (fst subChannel) (snd subChannel) model) 
+    ||> List.fold (fun model subChannel -> routeSubChannelWires channelOrientation (fst subChannel) (snd subChannel) model)
+

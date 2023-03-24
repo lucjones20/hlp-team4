@@ -522,10 +522,14 @@ let mUpUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> = // mMsg is curr
             // legacy case due for removal?
             let newModel = fst({ model with Action = Idle}, wireCmd (BusWireT.SelectWires []))
             
+            // adding a function call to reSizeSymbol so that symbols are automatically resized when you click on any of
+            // the two symbols that are selected (alternative to the drag-to-resize symbol it's now click-to-resize)
             validateTwoSelectedSymbols newModel
             |> function 
                 | Some(s1, s2) -> 
-                    {newModel with Wire = SmartSizeSymbol.reSizeSymbol newModel.Wire s1 s2 BusWireUpdate.updateSymbolWires}, Cmd.none
+                    // use of updateSymbolWiresNotSmart because smartAutoroute breaks reSizeSymbol
+                    //{newModel with Wire = SmartSizeSymbol.reSizeSymbol newModel.Wire s1 s2 BusWireUpdate.updateSymbolWires}, Cmd.none
+                    newModel, Cmd.none
                 | None -> printfn "SheetUpdateHelpers.fs line 528 delete later"; newModel, Cmd.none
 
     | InitialiseMovingLabel compId ->
@@ -654,7 +658,7 @@ let rec getChannel (bb1:BoundingBox) (bb2:BoundingBox) : BoundingBox option =
         else
             let x1, x2 = bb1.TopLeft.X + bb1.W, bb2.TopLeft.X // horizontal channel
             let union = boxUnion bb1 bb2
-            let topLeft = {Y=union.TopLeft.Y; X=x2}
+            let topLeft = {Y=union.TopLeft.Y; X=x1}
             Some {TopLeft = topLeft; H = union.H; W = x2 - x1}
 
 

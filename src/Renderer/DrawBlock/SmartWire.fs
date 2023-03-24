@@ -25,126 +25,129 @@ open Operators
 
 *)
 
+// HLP23: AUTHOR Gamaletsos (entire file)
+
+/// Function to change all segments in a wire to automatic routing mode.
+let makeSegsMovable (wire: Wire) :Wire =
+    {
+        wire with Segments =
+                    wire.Segments |> List.map (fun seg -> {seg with Mode = Auto})
+    }
 
 
+/// Function to change the routing mode of one segment to manual.
+/// This function returns a copy of the wire with the change on the corresponding segment.
+let makeSegImmov (wire: Wire) (i: int): Wire =
+    let newSegs = wire.Segments |> List.map ( fun seg ->
+        if seg.Index = i
+        then {seg with Mode = Manual}
+        else seg )
+    {wire with Segments = newSegs}
+
+
+/// Small helper to remove the first and last elements from a list.
+/// It returns a new copy of the list without these two elements.
+let removeFstLast list =
+    list |> List.tail |> List.rev |> List.tail |> List.rev
+
+
+/// This is closely resembling the updateWire function from BusWireUpdate.
+/// The intention was to use it to partially autoroute the edges of the wires.
+/// The edges of the wires are connected to components that move on the screen.
+/// When a component moves, the wire should re-route.
+/// PartialAutoroute routes the wire from its start to the first manually routed segment,
+/// hence it would solve the problem of routing the edges of the wires that do not
+/// intersect with any symbols. 
+let updateWire (model : Model) (wire : Wire) (reverse : bool) =
+    let newPort = 
+        match reverse with
+        | true -> Symbol.getInputPortLocation None model.Symbol wire.InputPort
+        | false -> Symbol.getOutputPortLocation None model.Symbol wire.OutputPort
+    if reverse then
+        partialAutoroute model (reverseWire wire) newPort true
+        |> Option.map reverseWire
+    else 
+        partialAutoroute model wire newPort false
+    |> Option.defaultValue wire
+
+
+/// SmartAutoroute will route the newly connected wires around symbols.
+/// When a new wire is created, autoroute will give it its basic form,
+/// that means all the initial vertices and segment lengths.
+/// After the wire is created, smartAutoroute's functionality will
+/// move the segments of the wires that intersect with any symbols.
+/// When a segment does not intersect a symbol, it should be autoRouted normally.
+/// The segments that do intersect with symbols should stay in their
+/// new position that was given by the symbol avoidance functionality.
+let smartAutoroute (model: Model) (wire: Wire): Wire = 
+    autoroute model wire
+
+
+ //let smartAutoroute (model: Model) (wire: Wire): Wire =
+
+ //    // If a wire does not exist yet, it must first be created by the autoroute function.
+ //    // If a wire already exists, it is handled as is.
+ //    let wireExists = (List.tryFind (fun el -> snd(el).WId = wire.WId) (Map.toList model.Wires)) <> None
+ //    let wire2 =     match wireExists with
+ //                    | true  -> wire
+ //                    | false -> printfn "Wire does not exist"
+ //                               autoroute model wire
+ //    // When a new wire is created, the model must be updated before any further changes are made to the wire.
+ //    let newModel =  match wireExists with
+ //                    | true  -> model
+ //                    | false -> updateWireSegmentJumps [wire2.WId] (Optic.set (wireOf_ wire2.WId) wire2 model)
+        
+ //    let symbols = model.Symbol.Symbols
     
 
-/// Fuction to detect if a wire has a segment that is overlapping with a Symbol.
-//let wireOversymbol (model: Model) (wire: Wire): bool =
-//    let symbols = model.Symbol.Symbols
-//    let removeFstLast list =
-//        list |> List.tail |> List.rev |> List.tail |> List.rev
-//    let mid_segments = removeFstLast wire.Segments
+ //    // This function folds over the symbols of the model.
+ //    // Since it is a folder function, it needs to keep track of the state of the model and the wire.
+ //    let symbolFolder (image: Wire*Model) (el: ComponentId*Symbol) =
+ //        let wire3, model2 = image
+ //        let symbol = snd(el)
 
-//    symbols |> Map.fold (fun segments = )
+ //        // This function folds over the segments of the wire.
+ //        // It checks if any of the segments intersect with a given symbol from the model.
+ //        // If a segment intersects, its position will be changed.
+ //        // This function, like symbolFolder, needs to keep track of the state of the model and the wire.
+ //        let segFolder (image2: Wire*Model) (i: int) =
+ //            let wire4, model3 = image2
+ //            if (i <= (List.length wire4.Segments) - 1) && (wire4.Segments.[i].Length <> 8.0)
+ //            then
+ //                let startPos, endPos = getAbsoluteSegmentPos wire4 i
+ //                let bBox = getSymbolBoundingBox symbol
+ //                let intersect = segOverSymbol symbol i wire4
 
+ //                let newWire =   match intersect with
+ //                                | Some orientation ->
+ //                                          match orientation with
+ //                                          | Horizontal ->
+ //                                                if startPos.Y < (bBox.TopLeft.Y + (bBox.H / 2.0))
+ //                                                then
+ //                                                    let intDistance = -((startPos.Y - (bBox.TopLeft.Y + (bBox.H / 2.0))) + (bBox.H / 2.0) + 10.0)                                                
+ //                                                    makeSegImmov (moveSegment model3 wire4.Segments.[i] intDistance) i
+ //                                                else
+ //                                                    let intDistance = (bBox.H / 2.0) + 10.0 - (startPos.Y - (bBox.TopLeft.Y + (bBox.H / 2.0)))                                                   
+ //                                                    makeSegImmov (moveSegment model3 wire4.Segments.[i] intDistance) i
 
-/// top-level function which replaces autoupdate and implements a smarter version of same
-/// it is called every time a new wire is created, so is easily tested.
-//let smartAutoroute (model: Model) (wire: Wire): Wire =
-//    printfn "-----------------New Autoroute-------------------"
-//    let wire2 = autoroute model wire
-//    let symbols = model.Symbol.Symbols
-//    //let removeFstLast list =
-//    //    list |> List.tail |> List.rev |> List.tail |> List.rev
-//    //let mid_segments = removeFstLast wire.Segments
+ //                                          | Vertical ->
+ //                                                if startPos.X < (bBox.TopLeft.X + (bBox.W / 2.0))
+ //                                                then
+ //                                                    let intDistance = -((bBox.W / 2.0) + 10.0 + (startPos.X - (bBox.TopLeft.X + (bBox.W / 2.0))))                                                   
+ //                                                    makeSegImmov (moveSegment model3 wire4.Segments.[i] intDistance) i
+ //                                                else
+ //                                                    let intDistance = (startPos.X - (bBox.TopLeft.X + (bBox.W / 2.0))) - ((bBox.W / 2.0) + 10.0)
+ //                                                    makeSegImmov (moveSegment model3 wire4.Segments.[i] intDistance) i
+
+ //                                | None -> updateWire model3 (updateWire model3 wire4 false) true
+
+ //                newWire, updateModelWires model3 [newWire]
+                          
+ //            else
+ //                let newWire = updateWire model3 (updateWire model3 wire4 false) true
+ //                newWire, updateModelWires model3 [newWire]
+                
+
+ //        ((wire3, model2) ,[0..10]) ||> List.fold segFolder
     
-
-//    let checkWireSegs (Id: ComponentId) (symbol: Symbol) =
-//        printfn "Symbol %A" symbol.Id
-//        let segFolder (state: bool) (i: int) =
-//            let startPos, endPos = getAbsoluteSegmentPos wire i
-//            let bBox = getSymbolBoundingBox symbol
-
-//            let intersectAmount = segmentIntersectsBoundingBox bBox startPos endPos
-
-//            let intersect = segOverSymbol symbol i wire2
-//            printfn "Intersection %A segment %A" intersect i
-
-//            match intersect with
-//            | Some orientation ->
-//                      //printfn "Segment %A intersects a symbol" i
-//                      true
-//            | None ->
-//                      //printfn "Segment %A does not intersect a Symbol" i
-//                      state
-
-//        (false ,[1..List.length wire.Segments - 1 ]) ||> List.fold segFolder
-    
-//    let test = symbols |> Map.map checkWireSegs
-//    printfn "%A" test
-//    printfn "Found intesecting segment %A" (List.exists (fun b -> snd(b)=true) (Map.toList test))
-//    if List.exists (fun b -> snd(b)=true) (Map.toList test)
-//    then {wire2 with Color = Red}
-//    else wire2
-    
-    //autoroute model wire
-
-
-
-
-let smartAutoroute (model: Model) (wire: Wire): Wire =
-    //printfn "-----------------New Autoroute-------------------"
-    let wire2 = autoroute model wire
-    let newModel = updateWireSegmentJumps [wire2.WId] (Optic.set (wireOf_ wire2.WId) wire2 model)
-    //printfn "Segments: %A" wire2.Segments
-    //printfn "Wire has %A segments" (List.length wire2.Segments)
-    let symbols = model.Symbol.Symbols
-    //let removeFstLast list =
-    //    list |> List.tail |> List.rev |> List.tail |> List.rev
-    //let mid_segments = removeFstLast wire.Segments
-    
-
-    let checkWireSegs (wire3: Wire) (el: ComponentId*Symbol) =
-        let symbol = snd(el)
-        //printfn "Symbol %A" symbol.Id
-        let segFolder (wire4: Wire) (i: int) =
-            if (i <= (List.length wire4.Segments) - 1) && (wire4.Segments.[i].Length <> 8.0)
-            then
-                let startPos, endPos = getAbsoluteSegmentPos wire4 i
-                let bBox = getSymbolBoundingBox symbol
-
-                //let intersectAmount = segmentIntersectsBoundingBox bBox startPos endPos
-
-            
-
-                let intersect = segOverSymbol symbol i wire4
-                //printfn "Intersection %A segment %A" intersect i
-                //printfn "startPos is %A" startPos
-
-                match intersect with
-                | Some orientation ->
-                          //printfn "Intersection %A segment %A" intersect i
-                          match orientation with
-                          | Horizontal ->
-                                if startPos.Y < (bBox.TopLeft.Y + (bBox.H / 2.0))
-                                then
-                                        let intDistance = -((startPos.Y - (bBox.TopLeft.Y + (bBox.H / 2.0))) + (bBox.H / 2.0) + 10.0)
-                                        moveSegment newModel wire4.Segments.[i] intDistance
-                                else
-                                        let intDistance = (bBox.H / 2.0) + 10.0 - (startPos.Y - (bBox.TopLeft.Y + (bBox.H / 2.0)))
-                                        //printfn "distance moved %A - %A = %A" startPos.Y (bBox.TopLeft.Y + (bBox.H / 2.0)) intDistance
-                                        moveSegment newModel wire4.Segments.[i] intDistance
-
-                          | Vertical ->
-                                if startPos.X < (bBox.TopLeft.X + (bBox.W / 2.0))
-                                then
-                                    let intDistance = -((bBox.W / 2.0) + 10.0 + (startPos.X - (bBox.TopLeft.X + (bBox.W / 2.0))))
-                                    //printfn "distance moved %A" intDistance
-                                    moveSegment newModel wire4.Segments.[i] intDistance
-                                else
-                                    let intDistance = (startPos.X - (bBox.TopLeft.X + (bBox.W / 2.0))) - (bBox.W / 2.0) + 10.0
-                                    //printfn "distance moved %A" intDistance
-                                    moveSegment newModel wire4.Segments.[i] intDistance
-
-                | None ->
-                          //printfn "Not moved"
-                          wire4
-            else
-                wire4
-
-        (wire3 ,[0..10]) ||> List.fold segFolder
-    
-    (wire2, Map.toList symbols) ||> List.fold checkWireSegs
-
-    //autoroute model wire
+ //    fst(((wire2, newModel), Map.toList symbols) ||> List.fold symbolFolder)

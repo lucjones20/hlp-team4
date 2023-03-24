@@ -1,4 +1,9 @@
 ﻿module SmartHelpers
+
+open Elmish
+open Fulma
+open Fable.React.Props
+open Fable.React
 open CommonTypes
 open DrawHelpers
 open DrawModelType
@@ -10,6 +15,7 @@ open Symbol
 
 open Optics
 open Operators
+
 
 //-----------------------------------------------------------------------------------------------//
 //---------------------------HELPERS FOR SMART DRAW BLOCK ADDITIONS------------------------------//
@@ -105,28 +111,9 @@ let updateModelWires
         ||> List.fold (fun wireMap wireToAdd -> Map.add wireToAdd.WId wireToAdd wireMap))
 
 
+module Constants = 
+    let portTextCharWidth = 8.
 
-/// Find the Y position of input ports for a given symbol
-/// Function takes in a SymbolT model and a symbol
-/// This uses the getPortLocation from the Symbol module and applies it to the
-/// list of port ids located on the left side of the module
-/// HLP23: AUTHOR Jones
-let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list = 
-    symbol.PortMaps.Order.TryFind Left // try to get list of port ids of the symbol
-    |> Option.defaultValue [] // extract the list from option
-    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto the list of port ids
-
-
-/// Find the Y position of output ports of a given symbol
-/// Function takes in a SymbolT model and a symbol
-/// This uses the getPortLocation from the Symbol module and applies it to the
-/// list of port ids located on the right side of the module
-/// HLP23: AUTHOR Jones
-let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list= 
-    symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
-    |> Option.defaultValue [] // extract list from option
-    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
- 
 
 /// Find the orientation of a wire segment given its index
 ///HLP23: AUTHOR Sougioultzoglou
@@ -162,6 +149,83 @@ let findParallelSegmentIndexes (wire: Wire) (orientation: Orientation)=
         then seg.Index::indexes
         else  indexes) []
 
+
+/// Returns a distance for a wire move that has been reduced if needed to
+/// keep the segment edges that need to be moved curved, as well as enforce minimum first/last segment lengths
+let getSaferDistanceForMove (segments: Segment list) (index: int) (distance: float) =
+    /// Returns a list of segments up to the first non-zero segment perpendicular to the segment leaving the port
+    let findBindingSegments portIndex (segList: Segment List) = 
+        segList
+        |> List.takeWhile (fun seg -> seg.Index % 2 = portIndex % 2 || seg.Length = 0) // Works for both input and output ports
+
+    let findDistanceFromPort boundSegList =
+        (0., boundSegList)
+        ||> List.fold (fun dist seg -> dist + seg.Length) // Since the segments in perpendicular direction are 0 we can just sum up all the segments as if they are in the same direction
+   
+    let reduceDistance bindingSegs findBindingIndex distance = 
+        if findBindingIndex bindingSegs <> index then 
+            distance
+        else
+            findDistanceFromPort bindingSegs
+            |> (fun dist -> 
+                    if sign dist = -1 then 
+                        max distance (dist + Constants.nubLength + Constants.cornerRadius)
+                    else 
+                        min distance (dist - Constants.nubLength - Constants.cornerRadius))
+
+    let bindingInputSegs = 
+        segments
+        |> findBindingSegments 0
+        |> List.map (fun seg -> { seg with Length = -seg.Length})
+
+    let bindingOutputSegs =
+        List.rev segments
+        |> findBindingSegments (segments.Length - 1)
+
+    let findInputBindingIndex boundSegList =
+        boundSegList
+        |> List.length
+
+    let findOutputBindingIndex =
+        findInputBindingIndex
+        >> (-) (segments.Length - 1)
+
+    distance
+    |> reduceDistance bindingInputSegs findInputBindingIndex
+    |> reduceDistance bindingOutputSegs findOutputBindingIndex
+
+
+/// Returns a wwireOf_aining the updated list of segments after a segment is moved by 
+/// a specified distance. The moved segment is tagged as manual so that it is no longer auto-routed.
+/// This function is very similar to moveSegment but restricts the moved distance so as not to cut of any rounded
+/// segment corners
+/// Throws an error if the index of the segment being moved is not a valid movable segment index.
+let moveSegmentRestricted (model:Model) (seg:Segment) (distance:float) = 
+    let wire = model.Wires[seg.WireId]
+    let segments = wire.Segments
+    let idx = seg.Index
+
+    if idx <= 0 || idx >= segments.Length - 1 then // Should never happen
+        printfn $"Trying to move wire segment {seg.Index}:{logSegmentId seg}, out of range in wire length {segments.Length}"
+        wire
+    else
+        let safeDistance = getSaferDistanceForMove segments idx distance
+    
+        let prevSeg = segments[idx - 1]
+        let nextSeg = segments[idx + 1]
+        let movedSeg = segments[idx]
+
+        let newPrevSeg = { prevSeg with Length = prevSeg.Length + safeDistance }
+        let newNextSeg = { nextSeg with Length = nextSeg.Length - safeDistance }
+        let newMovedSeg = { movedSeg with Mode = Manual }
+    
+        let newSegments = 
+            segments[.. idx - 2] @ [newPrevSeg; newMovedSeg; newNextSeg] @ segments[idx + 2 ..]
+
+        { wire with Segments = newSegments }
+
+
+
 /// sort 2 symbols with respect to their X position
 /// the left most symbol will be the first element in the return tuple
 /// HLP23: AUTHOR Jones
@@ -179,9 +243,27 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
         |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
         && ( s2.Component.InputPorts
         |> List.map (fun (x:Port) -> x.Id)
-        |> List.contains (string value.InputPort))) // check that one of the right symbol's input ports is the wire's input port
+        |> List.contains (string value.InputPort)))
+        ||
+        ((s2.Component.OutputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.OutputPort)) // check that one of the left symbol's output ports is the wire's output port
+        && ( s1.Component.InputPorts
+        |> List.map (fun (x:Port) -> x.Id)
+        |> List.contains (string value.InputPort)))
+        //  //check that one of the right symbol's input ports is the wire's input port
     wModel.Wires
     |> Map.filter matchInputOutputPorts
+
+let getSelectedEdgeWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol) (e1: Edge) (e2: Edge): Map<ConnectionId, Wire> =
+    let matchEdgeToEdgePorts key value : bool = 
+        let edge1Wires = Map.find e1 s1.PortMaps.Order
+        let edge2Wires = Map.find e2 s2.PortMaps.Order
+        ((List.contains (string value.OutputPort) edge1Wires || List.contains (string value.InputPort) edge1Wires)
+        &&
+        (List.contains (string value.OutputPort) edge2Wires) || List.contains (string value.InputPort) edge2Wires)
+    wModel.Wires
+    |> Map.filter matchEdgeToEdgePorts
 
 
 /// lenses used to edit symbols 
@@ -198,6 +280,10 @@ let labelBoundingBox_: Lens<Symbol, BoundingBox> = // change LabelBoundingBox of
     Lens.create (fun a -> a.LabelBoundingBox) (fun s a -> {a with LabelBoundingBox = s}) 
 
 let topLeft_: Lens<BoundingBox, XYPos> = Lens.create (fun a -> a.TopLeft) (fun s a -> {a with TopLeft = s}) // change TopLeft of LabelBoundingBox
+
+let hScale_: Lens<Symbol, float option> = Lens.create (fun a -> a.HScale) (fun s a -> {a with HScale = s})
+
+let vScale_: Lens<Symbol, float option> = Lens.create (fun a -> a.VScale) (fun s a -> {a with VScale = s})
 
 /// this functions takes two lists: the first one is the original list where a sublist is ordered wrong and the second
 /// is the correct ordering of that sublist 
@@ -241,30 +327,14 @@ let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol)
         | _ -> (s2, s1)
 
 
-//type ResizeScenario = |Horizontal | Vertical | Mixed
-
-//type ResizeScenario = |HorizontalResize | Verticalresize | MixedResize
-
-
-// change name
-let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
-    wires
-    |> Map.values
-    |> Seq.map (fun x -> (x.OutputPort, x.InputPort))
-    |> Seq.map (fun (op,ip) -> (Map.find (string op) referenceSymbol.PortMaps.Orientation), (Map.find (string ip) symbolToResize.PortMaps.Orientation))
-    |> Seq.map (fun (e1, e2) -> e1 = e2)
-    |> Seq.reduce(||)
-
-
 /// Function to determine if a point is within a Bounding Box.
 /// It will return True if the point is within the box, False otherwise.
 /// HLP 23: Author Gkamaletsos
 let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
-    //printfn "Boundingbox width: %A %A %A" bBox.W bBox.TopLeft point
-    let horizontally = point.X > bBox.TopLeft.X && point.X < bBox.TopLeft.X + bBox.W
-    let vertically = point.Y > bBox.TopLeft.Y && point.Y < bBox.TopLeft.Y + bBox.H
-    //if horizontally = true
-    //then printfn "vertical point in bBox detected"
+    let horizontally = point.X > bBox.TopLeft.X && point.X < (bBox.TopLeft.X + bBox.W)
+    let vertically = point.Y > bBox.TopLeft.Y && point.Y < (bBox.TopLeft.Y + bBox.H)
+    if (vertically=true) && (horizontally=true)
+    then printfn "point in bBox detected"
 
     horizontally && vertically
 
@@ -272,11 +342,17 @@ let pointInBBox (point: XYPos) (bBox: BoundingBox): bool =
 /// Function to determine if and how a segment crosses a symbol from end to end.
 /// This means that the edges of the segment are outside of the Symbol Bounding Box.
 /// HLP 23: Author Gkamaletsos
-let crossesBBox (startPos: XYPos) (endPos: XYPos) (bBox: BoundingBox): bool =
-    let horizontally = (startPos.X < bBox.TopLeft.X) && (endPos.X > bBox.TopLeft.X + bBox.W) && (startPos.Y > bBox.TopLeft.Y) && (startPos.Y < bBox.TopLeft.Y + bBox.H)
+let crossesBBox (startPos: XYPos) (endPos: XYPos) (bBox: BoundingBox): Orientation option =
+    let horizontally = (((startPos.X < bBox.TopLeft.X) && (endPos.X > bBox.TopLeft.X + bBox.W)) || ((endPos.X < bBox.TopLeft.X) && (startPos.X > bBox.TopLeft.X + bBox.W))) && (startPos.Y > bBox.TopLeft.Y) && (startPos.Y < bBox.TopLeft.Y + bBox.H)
     let vertically = (((startPos.Y < bBox.TopLeft.Y) && (endPos.Y > bBox.TopLeft.Y + bBox.H)) || ((endPos.Y < bBox.TopLeft.Y) && (startPos.Y > bBox.TopLeft.Y + bBox.H))) && (startPos.X > bBox.TopLeft.X) && (startPos.X < bBox.TopLeft.X + bBox.W)
+    if (vertically=true) || (horizontally=true)
+    then printfn "crossing detected"
 
-    horizontally || vertically
+    if horizontally
+    then Some Horizontal
+    elif vertically
+    then Some Vertical
+    else None
 
 
 /// Function to determine if a segment is intersecting a given Symbol in any way.
@@ -289,23 +365,36 @@ let segOverSymbol (symbol: Symbol) (index: int) (wire: Wire): Orientation option
     let orientation = getSegmentOrientation startPos endPos
     let bBox = getSymbolBoundingBox symbol
 
-    match pointInBBox startPos bBox || pointInBBox endPos bBox || crossesBBox startPos endPos bBox with
-        | true ->  //printfn "startPos in bBox: %A, endPos in bBox: %A" (pointInBBox startPos bBox) (pointInBBox endPos bBox)
-                   Some orientation
-        | false -> None 
+    match pointInBBox startPos bBox || pointInBBox endPos bBox with
+        | true  -> Some orientation
+        | false -> crossesBBox startPos endPos bBox
+
+/// Function that will determine if a symbol overlaps with any other symbols in the model.
+/// It takes the symbol and the model as inputs. It also needs Sheet.boxesIntersect as input because this
+/// could not be included in this module because of compilation order problems.
+/// HLP 23: Author Gkamaletsos
+let symbolOverlaps (symbol: Symbol) (model: SymbolT.Model) (boxesIntersect): bool =
+
+    let tmpSymbolMap:Map<ComponentId, Symbol> = Map.remove symbol.Id model.Symbols
+
+    (false, Map.toList tmpSymbolMap) ||>
+    List.fold (fun state symbol2 ->
+                    state || (boxesIntersect (getSymbolBoundingBox symbol) (getSymbolBoundingBox (snd(symbol2))))
+                )
+
 
 /// This function takes an oldPorts Map, an edge, an order list, and another list, 
 /// and returns a sorted list of strings based on the given order list. If the 
 /// string isn't in the order list, then it will be sorted at the end.
 /// HLP 23: Author Parry
-let sorted 
+let sorted
     (oldPorts: Map<Edge,string list>) 
     (edge: Edge) (order: string list) 
     (other: string list) =
         oldPorts
         |> Map.find edge
-        |> List.sortBy (fun inPort -> 
-                List.findIndex ((=) inPort) order 
+        |> List.sortBy (fun port -> 
+                List.findIndex ((=) port) order 
                 |> function 
                    | -1 -> List.length other 
                    | i -> i)
@@ -320,13 +409,8 @@ let sortPorts
         optimalOrder 
         |> Map.fold (fun acc edge order -> 
                 let other = 
-                    oldPorts
-                    |> Map.filter (fun e _ -> e <> edge)
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, strlst) -> strlst)
-                    |> Seq.concat
-                    |> Seq.distinct
-                    |> List.ofSeq
+                    oldPorts[edge]
+                    |> List.distinct
                 let sortedPorts = sorted oldPorts edge order other
                 Map.add edge sortedPorts acc) 
             Map.empty
@@ -342,18 +426,20 @@ let findPortIds (wires: Map<ConnectionId,Wire>) : ((string * string) List) =
     |> Seq.toList
     |> List.map matching
 
-/// This function takes a list of edges and a list of ports needed, and returns a 
-/// Map of each edge to a list of ports connected to that edge. The returned Map 
-/// is grouped based on the side of the edge (Top, Bottom, Left, or Right).
+/// This function takes a list of edges and a corresponding list of ports needed, 
+/// it then groups the string list into a list of all strings that are on a certain 
+/// edge. This returns a Map of each edge to a list of ports connected to that edge. 
+/// The returned Map is grouped based on the side of the edge (Top, Bottom, Left, or Right).
 /// HLP 23: Author Parry
 let groupByEdge (changingEdge: Edge list) (portsNeeded: string list) =
     let makeMapValue (inputList: (Edge*string)list) (edge:Edge) =
-        let outputList = inputList |> List.map (fun (x,y) -> y)
+        let outputList = inputList |> List.map (fun (_,y) -> y)
         edge, (outputList |> List.rev)
     let splitList (originalList: (Edge*string)list) (edge:Edge)=
-        originalList |> List.partition (fun (x,y) -> x = edge) |> (fun (x,y) -> makeMapValue x edge)
+        originalList |> List.partition (fun (x,_) -> x = edge) |> (fun (x,_) -> makeMapValue x edge)
     let sortedList = (changingEdge,portsNeeded) ||> List.map2 (fun s1 s2 -> (s1,s2))
     Map.ofList [splitList sortedList Top ; splitList sortedList Bottom ; splitList sortedList Left ; splitList sortedList Right]
+
     
 /// This function takes a Map of Edge to string lists and returns a list of strings of all ports.
 /// HLP 23: Author Parry
@@ -367,52 +453,218 @@ let getListOfPortsFromMap (mapOfPorts:Map<Edge,string list>):string list =
         | None -> None)
     |> List.sortBy (fun (edge, _) -> edge)
     |> List.collect snd
-    
-/// This function takes two Maps of Edge to string lists, and returns a new Map of Edge to string 
-/// lists where each list is ordered according to the correct order from the correctOrderList.
-/// Makes use of Author Jones' correctOrderingOfList helper function
-/// HLP 23: Author Parry
-let correctOrderingOfPorts 
-    (originalList: Map<Edge, string list>) 
-    (correctOrderList: Map<Edge, string list>) 
-    : Map<Edge, string list> =
-        originalList
-        |> Map.fold (fun acc edge originalPorts -> 
-            let correctPorts = Map.find edge correctOrderList
-            let orderedPorts = correctOrderingOfList originalPorts correctPorts
-            Map.add edge orderedPorts acc) Map.empty
-    
-/// This function takes a list of tuples, where each tuple contains two strings, and a reference 
-/// list, and returns a list of strings sorted according to the order of the reference list.
-/// HLP 23: Author Parry
-let sortTupleListByNewList (tupleList: List<string*string>) (refList:string list) : string list =
-    let refIndex = Map.ofList (List.mapi (fun i x -> (x, i)) refList)
-    let sortByRefIndex ((x, y): string * string) =
-        match refIndex.TryGetValue x with
-        | true, index -> index, y
-        | _ -> failwith "Element not found in reference list"
-    tupleList |> List.sortBy sortByRefIndex |> List.map snd
-    
-/// This function takes a list of tuples, where each tuple contains two strings, and a reference list, 
-/// and returns a list of strings sorted according to the order of the second string in the tuple.
-/// HLP 23: Author Parry
-let sortTupleListByList (tupleList: List<string*string>) (refList:string list) : string list =
-    let swapList = tupleList |> List.map (fun (x,y) -> y,x)
-    (sortTupleListByNewList swapList refList)
-    
-/// This function takes a list of edges, a reference list, and a list of tuples, where each tuple 
-/// contains a string and an edge. It returns a sorted list of edges according to the order of 
-/// the string in the tuple.
-/// HLP 23: Author Parry
-let sortEdgeByList 
-    (orderEdge: Edge list) 
-    (refList:string list) 
-    (tupleList: List<string*string>) 
-    : Edge list =
-        let refIndex = Map.ofList (List.mapi (fun i x -> (x, i)) refList)
-        let sortByRefIndex ((x, y): string * Edge) =
-            match refIndex.TryGetValue x with
-            | true, index -> index, y
-            | _ -> failwith "Element not found in reference list"
-        ((tupleList |> List.map snd), orderEdge) ||> List.map2 (fun x y -> x,y)
-        |> List.sortBy sortByRefIndex |> List.map snd
+
+type XorY = X | Y
+
+let getEdgePosition symbol edge = 
+    match edge with
+        | Left -> symbol.Pos.X
+        | Right -> symbol.Pos.X + symbol.Component.W * Option.defaultValue 1. symbol.HScale
+        | Top -> symbol.Pos.Y
+        | Bottom -> symbol.Pos.Y - symbol.Component.H * Option.defaultValue 1. symbol.VScale
+
+let getTotalLengthFromPortLabels portList = 
+    let labelLengths = (
+        List.map String.length portList
+        |> List.map (float)
+    )
+    (0., labelLengths)
+    ||> List.fold (fun acc e -> acc + e)
+    |> (*) Constants.portTextCharWidth
+
+let getMinimumHeightAndWidth symbol = 
+    let portIdMap = getCustomPortIdMap symbol.Component
+    let portMaps = makeMapsConsistent portIdMap symbol
+    let convertIdsToLbls currMap edge idList =
+        let lblLst = List.map (fun id -> portIdMap[id]) idList
+        Map.add edge lblLst currMap
+    let portLabels = 
+        (Map.empty, portMaps.Order) ||> Map.fold convertIdsToLbls
+    let minTopWidth = getTotalLengthFromPortLabels portLabels[Top]
+    let minBottomWidth = getTotalLengthFromPortLabels portLabels[Bottom]
+    let minLeftHeight = getTotalLengthFromPortLabels portLabels[Left]
+    let minRightHeight = getTotalLengthFromPortLabels portLabels[Right]
+    let minWidth = max minTopWidth minBottomWidth
+    let minHeight = max minLeftHeight minRightHeight
+    minHeight, minWidth
+
+
+let formatSymbolPopup() : ReactElement =
+    let styledSpan styles txt = span [Style styles] [str <| txt]
+    let bSpan txt = styledSpan [FontWeight "bold"] txt
+    let iSpan txt = styledSpan [FontStyle "italic"] txt
+    let tSpan txt = span [] [str txt]
+    div [] [
+    bSpan "Custom components" ; tSpan " (found under "; bSpan "'THIS PROJECT'" ; tSpan ") can be awkwardly aligned with each other and other blocks."
+    br []; br []
+    ul [Style [ListStyle "disc"; MarginLeft "30px"]]
+        [
+            li [] [str "To use this function, select two symbols, the second symbol to be selected will be moved."]
+
+            li [] [ str "The ports will then be reordered on both components so they all line up with each other."]
+            
+            li [] [str "The symbol will be resized to line up neatly with the first port so the sheet looks tidier."]
+            
+            li [] [str "Any wires that cross over the wires between these symbbols will be moved into the neatest ordering." ]
+            ]
+        ]
+
+open PopupDrawingView
+
+let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
+    let body = div [] [str "test1"]
+    let foot = div [] [str "test2"]
+    closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
+
+type PopupChoice = {
+    Number: int
+    ButtonColor: IColor
+    ButtonText: string
+}
+
+// let getEdgePosition e1 e2 (xy: XorY) wModel referenceSymbol symbolToResize = 
+//     (Map.tryFind e1 referenceSymbol.PortMaps.Order, M)
+
+let multipleChoicePopupFunc
+        title 
+        (body:(Msg->Unit)->ReactElement) 
+        (choices: PopupChoice list)
+        (buttonAction: int -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
+    let foot dispatch =
+        let leftChildren =
+           [div [] (choices
+           |> List.mapi(fun i choice ->
+                      div [] [Level.item [] [
+                                  Button.button [
+                                      Button.Color choice.ButtonColor
+                                      Button.OnClick (buttonAction choice.Number dispatch)
+                                  ] [ str choice.ButtonText ]
+                              ];
+                           br [] ]
+                    )
+                )]
+        Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
+            Level.left [] leftChildren
+            Level.right [] []
+        ]
+
+    closablePopupFunc title body foot []
+
+
+//let multipleChoicePopupFuncTest
+    //    title 
+    //    (body:(Msg->Unit)->ReactElement) 
+    //    (choices: PopupChoice list)
+    //    (buttonAction: int -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
+    //let foot dispatch =
+    //    let leftChildren =
+    //       [div [] (choices
+    //       //|> List.filter (fun c -> c.Number % 2 = 0)
+    //       |> List.mapi(fun i choice ->
+    //              match i % 2, i = List.length choices - 1 with
+    //              | 1 , true ->
+    //                   div [] []
+    //              | 0, _ -> 
+    //                  div [] [Level.item [] [
+    //                              Button.button [
+    //                                  Button.Color choice.ButtonColor
+    //                                  Button.OnClick (buttonAction choice.Number dispatch)
+    //                              ] [ str choice.ButtonText ]
+    //                          ]
+    //                         ]
+                   
+    //              | _  ->
+    //                   div [] [ br [] ]
+    //                )
+    //            )]
+
+    //    let rightChildren =
+    //       [div [] (choices
+    //       //|> List.filter (fun c -> c.Number % 2 = 0)
+    //       |> List.tail
+    //       |> List.mapi(fun i choice ->
+    //              match i % 2 with
+    //              | 0 -> 
+    //                  div [] [Level.item [] [
+    //                              Button.button [
+    //                                  Button.Color choice.ButtonColor
+    //                                  Button.OnClick (buttonAction choice.Number dispatch)
+    //                              ] [ str choice.ButtonText ]
+    //                          ]
+    //                         ]
+                           
+    //              | _  ->
+    //                   div [] [ br [] ]
+    //                )
+    //            )]
+                
+    //    Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
+    //        Level.left [] leftChildren
+    //        Level.right [] rightChildren
+    //    ]
+
+    //closablePopupFunc title body foot []
+
+
+let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: Edge)
+    : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
+
+    let body = div [] [str "This is complex resizing! Would you like to resize based on the inner ports or the outer ports?"]
+    let (choices: PopupChoice list) =
+        [{Number = 1; ButtonColor = IsPrimary; ButtonText = "Resize based on inner ports"};
+        {Number = 2; ButtonColor = IsPrimary; ButtonText = "Resize based on outer ports"};
+        {Number = 3; ButtonColor = IsLight; ButtonText = "Don't resize"};
+        ]
+
+    let buttonAction selectedChoiceNumber dispatch  _ =
+        let symbolEdgePosDiff1 = abs (getEdgePosition symbol1 edge1 - getEdgePosition symbol2 edge2)
+        let symbolEdgePosDiff2 = abs (getEdgePosition symbol1 edge2 - getEdgePosition symbol2 edge1)
+        printfn "%A" symbolEdgePosDiff1
+        printfn "%A" symbolEdgePosDiff2
+        let newEdge1, newEdge2 = (
+            if symbolEdgePosDiff1 < symbolEdgePosDiff2 then 
+                match edge1 with
+                    | Top | Bottom -> (edge1, edge2)
+                    | Left | Right -> (edge2, edge1)
+            else
+                match edge1 with
+                    | Top | Bottom -> (edge2, edge1)
+                    | Left | Right -> (edge1, edge2)
+        )
+        printfn "edge1: %A, edge2: %A, newedge1: %A, newedge2: %A" edge1 edge2 newEdge1 newEdge2
+        if selectedChoiceNumber = 1 then
+            printfn "True, inner selected"
+            dispatch <| ClosePopup
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, newEdge1, newEdge2)
+        elif selectedChoiceNumber = 2 then
+            printfn "False, outer Selected"
+
+            dispatch <| ClosePopup
+            dispatch <| BusWireT.SelectiveResize (symbol1, symbol2, newEdge2, newEdge1)
+        else
+            dispatch <| ClosePopup
+
+
+    multipleChoicePopupFunc
+        "Select resize criterion" 
+        (fun _ -> body)
+        choices
+        buttonAction 
+    |> Some
+
+
+
+let userGuidePopup() : ReactElement =
+    let styledSpan styles txt = span [Style styles] [str <| txt]
+    let bSpan txt = styledSpan [FontWeight "bold"] txt
+    let iSpan txt = styledSpan [FontStyle "italic"] txt
+    let tSpan txt = span [] [str txt]
+    div [] [
+    bSpan "For more help: ";        
+        a [            
+            Href "https://tomcl.github.io/issie/user-guide/";            
+            Target "_blank";          
+            Rel "noopener noreferrer"      
+        ]
+        [tSpan "https://tomcl.github.io/issie/user-guide/"]
+    ]

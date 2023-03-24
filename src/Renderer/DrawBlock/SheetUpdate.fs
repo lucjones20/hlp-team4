@@ -744,7 +744,9 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
          validateTwoSelectedSymbols model
          |> function
             | Some (s1,s2) ->
-                {model with Wire = SmartPortOrder.reOrderPorts model.Wire s1 s2}, Cmd.none
+                //let reorderOne = SmartPortOrder.reOrderPorts model.Wire s1 s2 BusWireUpdate.updateSymbolWires
+                let reorderTwo = SmartPortOrder.reOrderPorts model.Wire s2 s1 BusWireUpdate.updateSymbolWires
+                {model with Wire = reorderTwo; UndoList = appendUndoList model.UndoList model}, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none
@@ -755,7 +757,18 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
          validateTwoSelectedSymbols model
          |> function
             | Some (s1,s2) ->
-                {model with Wire = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires}, Cmd.none
+                // added updateSymbolWires to be able to update wires
+                // use of updateSymbolWiresNotSmart because smartAutoroute breaks reSizeSymbol
+                let wires = SmartSizeSymbol.reSizeSymbol model.Wire s1 s2 BusWireUpdate.updateSymbolWires boxesIntersect
+                match wires.PopupViewFunc with
+                    | None -> {model with Wire = wires; UndoList = appendUndoList model.UndoList model}, Cmd.none
+                    | Some(popup) -> 
+                        let myPopupCreationMsg = ShowPopup popup
+                        let myPopupCmd = Cmd.ofMsg myPopupCreationMsg
+                        {model with 
+                            Wire = wires
+                            UndoList = appendUndoList model.UndoList model
+                        }, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none
@@ -776,14 +789,44 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                                 printfn "Symbols are not oriented for either a vertical or horizontal channel"
                                 model, Cmd.none
                            | Some channel ->
-                                {model with Wire = SmartChannel.smartChannelRoute Horizontal channel model.Wire}, Cmd.none
+                                {model with Wire = SmartChannel.smartChannelRoute Horizontal channel model.Wire; UndoList = appendUndoList model.UndoList model}, Cmd.none
 
                    | Some channel ->
-                        {model with Wire = SmartChannel.smartChannelRoute Vertical channel model.Wire}, Cmd.none
+                        {model with Wire = SmartChannel.smartChannelRoute Vertical channel model.Wire; UndoList = appendUndoList model.UndoList model}, Cmd.none
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none   
-    
+    | TestFormatSymbol ->
+        // Combination of implementable functitons
+         validateTwoSelectedSymbols model
+         |> function
+            | Some (s1,s2) ->
+
+                let reorderOne = SmartPortOrder.reOrderPorts model.Wire s2 s1 BusWireUpdate.updateSymbolWires
+
+                //let reorderTwo = SmartPortOrder.reOrderPorts reorderOne s1 s2 BusWireUpdate.updateSymbolWires
+                //let resize = SmartSizeSymbol.reSizeSymbol reorderOne s1 s2 BusWireUpdate.updateSymbolWires boxesIntersect
+                
+                let bBoxes = model.BoundingBoxes
+                //let resize = SmartSizeSymbol.selectiveResizeSymbol reorder s2 s1 Left Right BusWireUpdate.updateSymbolWires
+                let rechannel = 
+                    getVerticalChannel bBoxes[s1.Id] bBoxes[s2.Id]
+                    |> function 
+                       | None ->
+                            getHorizontalChannel bBoxes[s1.Id] bBoxes[s2.Id]
+                            |> function 
+                               | None -> 
+                                    printfn "Symbols are not oriented for either a vertical or horizontal channel"
+                                    reorderOne
+                               | Some channel ->
+                                    SmartChannel.smartChannelRoute Horizontal channel reorderOne
+                       | Some channel ->
+                            SmartChannel.smartChannelRoute Vertical channel reorderOne
+                {model with Wire = rechannel; UndoList = appendUndoList model.UndoList model}, Cmd.ofMsg TestPortPosition
+            | None -> 
+                printfn "Error: can't validate the two symbols selected to reorder ports"
+                model, Cmd.none
+    // | SelectiveResize (edge1, edge2, symbol1, symbol2) -> 
 
     | ToggleNet _ | DoNothing | _ -> model, Cmd.none
     |> Optic.map fst_ postUpdateChecks
@@ -796,8 +839,6 @@ let init () =
 
     {
         Wire = wireModel
-        PopupViewFunc = None
-        PopupDialogData = {Text=None; Int=None; Int2=None}
         BoundingBoxes = boundingBoxes
         LastValidBoundingBoxes = boundingBoxes
         SelectedComponents = []
