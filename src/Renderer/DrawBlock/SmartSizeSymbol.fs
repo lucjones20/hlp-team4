@@ -33,10 +33,15 @@ module Constants =
 
 // type ConnectionType = LtR | RtL | TtB | BtT
 /// type to characterise the different cases of resize we might encounter
-type ResizeScenario = Mixed | LtR | RtL | TtB | BtT
+/// The different cases are:
+///     - LtR: the wire has its output on the left edge of the first symbol and input on the right edge of the second symbol
+///     - RtL: the wire has its output on the right edge of the first symbol and input on the left edge of the other symbol
+///     - TtB: the wire has its output on the top edge of the first symbol and input on the bottom edge of the other symbol
+///     - BtT: the wire has its output on the bottom edge of the first symbol and input on the top edge of the second symbol
+type WireConnectionType = Mixed | LtR | RtL | TtB | BtT
 
 
-
+/// returns a list of an Edge tuple that indicates on which Edge the given wires have their output and input respectively
 let getPortEdges (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol) =
     wires
     |> Map.values
@@ -51,6 +56,7 @@ let getPortEdges (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (sym
             | None -> Map.find (string ip) referenceSymbol.PortMaps.Orientation
         ))
 
+/// returns the type of connection that the given wires are
 let getEdgeConnections (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol) =
     ([], (getPortEdges wires referenceSymbol symbolToResize
     |> Seq.toList
@@ -72,7 +78,7 @@ let getEdgeConnections (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol
 /// this function also sorts the symbols into a reference symbol (whose height or width will not be changed)
 /// and a symbol to resize
 /// the reference symbol is chosen as the symbol that outputs into the other symbol (convention that I chose)
-let getConnectingWireOrientation (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): ResizeScenario * Symbol * Symbol = 
+let getConnectingWireOrientation (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): WireConnectionType * Symbol * Symbol = 
     let selectedWires = getSelectedSymbolWires wModel s1 s2
     if (Map.isEmpty selectedWires) then
         match getEdgeConnections (getSelectedSymbolWires wModel s2 s1) s2 s1 with
@@ -104,6 +110,7 @@ let getConnectingWireOrientation (wModel: BusWireT.Model) (s1: Symbol) (s2: Symb
                 )
 
 
+/// checks whether the specified arguments are in an order that will make the resize correct
 let checkEdgeIsCorrect e1 e2 wModel referenceSymbol symbolToResize = 
     getSelectedSymbolWires wModel referenceSymbol symbolToResize
     |> Map.values
@@ -116,7 +123,9 @@ let checkEdgeIsCorrect e1 e2 wModel referenceSymbol symbolToResize =
     ))
     |> List.reduce (||)
 
-let checkForConflictingWiring (xy:XorY) wModel referenceSymbol symbolToResize = 
+/// returns the number of wires that are connected from one edge of a symbol to the another edge of another symbol stricly, meaning that
+/// it returns -1 if the wiring involves more than one edge on each symbol
+let getNumberOfWiresFromOneEdge (xy:XorY) wModel referenceSymbol symbolToResize = 
     getSelectedSymbolWires wModel referenceSymbol symbolToResize
     |> Map.values
     |> Seq.toList
@@ -135,39 +144,7 @@ let checkForConflictingWiring (xy:XorY) wModel referenceSymbol symbolToResize =
                             | true -> List.length tail + 1
 
 
-/// this function takes in 2 symbols: s1 (the reference symbol) and s2 (the symbol to resize)
-/// the output is a tuple consisting of the Edge on which the input ports are located on s2 (the symbol to resize),
-/// the list of output ports of s2 and the list of input ports of s2
-let getOutputInputPorts (s1: Symbol) (s2: Symbol): Edge * Edge * string list * string list = 
-    let outputEdge = (
-        s1.Component.OutputPorts
-        |> List.head
-        |> fun x -> x.Id
-        |> fun x -> Map.find x s1.PortMaps.Orientation
-    ) 
-    let inputEdge = (
-        s2.Component.InputPorts
-        |> List.head
-        |> fun x -> x.Id
-        |> fun x -> Map.find x s2.PortMaps.Orientation
-    )
-    (outputEdge, inputEdge, Map.find outputEdge s1.PortMaps.Order, Map.find inputEdge s2.PortMaps.Order)
-
-/// this function will take in the output ports (from the reference symbol) and return an in order list
-/// of the wires that connect the two symbols
-/// the outputed list of wires will be needed to obtain the list of input ports (from the right symbol) that are
-/// connected to the ouput ports. The list of input ports obtained will determine the new order in which 
-/// the ports will be reordered on the right symbol 
-let rec orderWiresByOutputPort selectedWires portList acc = 
-    match portList with
-        |a::tail -> (
-            Map.filter (fun key value -> value.OutputPort = a) selectedWires
-            |> Map.toList
-            |> List.append acc
-            |> orderWiresByOutputPort  selectedWires tail
-            )
-        |_ -> acc
-
+/// returns a function that will scale an option by the specified scale
 let scaleDimension scale = function 
     | None -> Some (scale)
     | Some(a) -> Some (a * scale)
@@ -187,6 +164,7 @@ let getPortOffset (xy: XorY) (selectedWires: Map<ConnectionId, Wire>) (symbolMod
     |> Seq.head
     |> fun (x,y) -> abs (y-x)
 
+/// this function finds the direction in which a symbol has to be moved and multiplies the offset by 1 or -1 accordingly
 let getPortOffsetScale (xy: XorY) referenceSymbol symbolToResize refEdge resizeEdge symbolModel offset = 
     let refPort = List.head (Map.find refEdge referenceSymbol.PortMaps.Order)
     let resizePort = List.head (Map.find resizeEdge symbolToResize.PortMaps.Order)
@@ -198,15 +176,6 @@ let getPortOffsetScale (xy: XorY) referenceSymbol symbolToResize refEdge resizeE
             |Y -> float (sign (port1.Y- port2.Y))
     |> (*) offset
 
-/// this function reorders the input ports of symbolToResize to match the order of output ports
-/// resulting in an ordering where wires don't cross eachother
-let getNewPortOrder (outputPorts: string list) (inputPorts: string list) (symbolToResize: Symbol) (outputEdge: Edge) (selectedWires: Map<ConnectionId, Wire>) = 
-    (List.map (fun x -> OutputPortId x) outputPorts, []) ||> orderWiresByOutputPort selectedWires
-    |> List.map (fun (x, y) -> string (y.InputPort))
-    |> List.rev 
-    |> correctOrderingOfList inputPorts 
-    |> fun x -> Map.add outputEdge x symbolToResize.PortMaps.Order
-
 /// this function changes the position of a symbol by the offset specified
 let updateSymbolPosition (s: Symbol) (xOrYLens_: Lens<XYPos, float>) (offset: float): Symbol list = 
     s
@@ -214,6 +183,8 @@ let updateSymbolPosition (s: Symbol) (xOrYLens_: Lens<XYPos, float>) (offset: fl
     |> Optic.map (labelBoundingBox_ >-> topLeft_ >-> xOrYLens_) (fun x -> x - offset)
     |> fun x -> [x]
 
+/// This function is an alternative to resizeSymbol for when you know which edges to resize on
+/// However, this function will not cause any popup to show
 let selectiveResizeSymbol 
     (wModel: BusWireT.Model)
     (referenceSymbol: Symbol)
@@ -259,8 +230,7 @@ let selectiveResizeSymbol
                 let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.wideGap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.wideGap))
                 let tmpNewHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
                 let minWidthScale = 
-                    getMinimumHeightAndWidth symbolToResize
-                    |> snd
+                    getMinimumWidth symbolToResize
                     |> fun x -> x / symbolToResize.Component.W
                 let newHorizontalScale = (
                     tmpNewHorizontalScale
@@ -290,7 +260,7 @@ let selectiveResizeSymbol
 /// HLP23: To test this, it must be given two symbols interconnected by wires. It then resizes symbolToSize
 /// so that the connecting wires are exactly straight
 /// HLP23: It should work out the interconnecting wires (wires) from 
-////the two symbols, wModel.Wires and sModel.Ports
+/// the two symbols, wModel.Wires and sModel.Ports
 /// It will do nothing if symbolToOrder is not a Custom component (which has adjustable size).
 /// HLP23: when this function is written replace teh XML comment by something suitable concisely
 /// stating what it does.
@@ -306,7 +276,7 @@ let reSizeSymbol
     |> fun (case, referenceSymbol, symbolToResize) -> 
         match case with 
             | RtL | LtR ->
-                match checkForConflictingWiring X wModel referenceSymbol symbolToResize with
+                match getNumberOfWiresFromOneEdge X wModel referenceSymbol symbolToResize with
                     | -1 -> {wModel with PopupViewFunc = resizeSelectPopup referenceSymbol symbolToResize Left Right} 
                     | 0 | 1 -> wModel
                     | _ -> 
@@ -346,7 +316,7 @@ let reSizeSymbol
                             |> fun x -> updateSymbolWires x rightSymbol'.Id)
 
             | TtB | BtT -> 
-                match checkForConflictingWiring Y wModel referenceSymbol symbolToResize with
+                match getNumberOfWiresFromOneEdge Y wModel referenceSymbol symbolToResize with
                     | -1 -> {wModel with PopupViewFunc = resizeSelectPopup referenceSymbol symbolToResize Top Bottom} 
                     | 0 | 1 -> wModel
                     | _ -> 
@@ -361,8 +331,7 @@ let reSizeSymbol
                         let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.wideGap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.wideGap))
                         let tmpNewHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
                         let minWidthScale = 
-                            getMinimumHeightAndWidth symbolToResize
-                            |> snd
+                            getMinimumWidth symbolToResize
                             |> fun x -> x / symbolToResize.Component.W
                         let newHorizontalScale = (
                             tmpNewHorizontalScale

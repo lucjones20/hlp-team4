@@ -82,57 +82,6 @@ let boxesIntersect (box1: BoundingBox) (box2: BoundingBox) =
     && min box1.TopLeft.Y (box1.TopLeft.Y + box1.H) < max box2.TopLeft.Y (box2.TopLeft.Y + box2.H)
     && min box2.TopLeft.Y (box2.TopLeft.Y + box2.H) < max box1.TopLeft.Y (box1.TopLeft.Y + box1.H)
 
-/// HLP23: function to update the wires without the use of smartAutoroute as that would break other functionalites
-// let updateWireNotSmart (model : Model) (wire : Wire) (reverse : bool) =
-//     let newPort = 
-//         match reverse with
-//         | true -> Symbol.getInputPortLocation None model.Symbol wire.InputPort
-//         | false -> Symbol.getOutputPortLocation None model.Symbol wire.OutputPort
-//     if reverse then
-//         partialAutoroute model (reverseWire wire) newPort true
-//         |> Option.map reverseWire
-//     else 
-//         partialAutoroute model wire newPort false
-//     |> Option.defaultValue (autoroute model wire)
-
-
-// let updateWiresNotSmart (model : Model) (compIdList : ComponentId list) (diff : XYPos) =
-
-//     let wires = filterWiresByCompMoved model compIdList
-
-//     let newWires =
-//         model.Wires
-//         |> Map.toList
-//         |> List.map (fun (cId, wire) -> 
-//             if List.contains cId wires.Both //Translate wires that are connected to moving components on both sides
-//             then (cId, moveWire wire diff)
-//             elif List.contains cId wires.Inputs //Only route wires connected to ports that moved for efficiency
-//             then (cId, updateWireNotSmart model wire true)
-//             elif List.contains cId wires.Outputs
-//             then (cId, updateWireNotSmart model wire false)
-//             else (cId, wire))
-//         |> Map.ofList
-
-//     { model with Wires = newWires }
-
-// let updateSymbolWiresNotSmart (model: Model) (compId: ComponentId) =
-//     let wires = filterWiresByCompMoved model [compId]
-    
-//     let newWires =
-//         model.Wires
-//         |> Map.toList
-//         |> List.map (fun (cId, wire) ->
-//             if List.contains cId wires.Both then // Update wires that are connected on both sides
-//                 cId, (
-//                     updateWireNotSmart model wire true 
-//                     |> fun wire -> updateWireNotSmart model wire false)
-//             elif List.contains cId wires.Inputs then 
-//                 cId, updateWireNotSmart model wire true
-//             elif List.contains cId wires.Outputs then
-//                 cId, updateWireNotSmart model wire false
-//             else cId, wire)
-//         |> Map.ofList
-//     { model with Wires = newWires }
 //---------------------------------------------------------------------------------//
 //------------------------------BusWire Init & Update functions--------------------//
 //---------------------------------------------------------------------------------//

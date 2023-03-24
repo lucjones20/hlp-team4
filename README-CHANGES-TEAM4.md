@@ -6,6 +6,7 @@ src/Renderer/DrawBlock/BusWireUpdate.fs
 - added ability to calculate if two bounding boxes intersect each other
 - added popup options to the symbols model
 - added popup dialogue to the update function
+- modified update to also deal with the Selective Resize message
 
 src/Renderer/DrawBlock/PopupDrawingView.fs
 - open BusWireT to include BusWireT.Msg instead of SheetT.Msg
@@ -15,6 +16,7 @@ src/Renderer/DrawBlock/DrawModelType.fs
 - changed module BusWireT "type Msg" to module BusWireT "and Msg" to be compatable with PopupDrawingView
 - moved Popup Dialog Management Messages into module BusWireT "and Msg"
 - added TestFormatSymbol to module SheetT "type Msg"
+- added the SelectiveResize message to the BusWireT Msg type
 
 src/Renderer/DrawBlock/SheetUpdate.fs
 - all changes are just implementing the group phase changes

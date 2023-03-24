@@ -255,6 +255,8 @@ let getSelectedSymbolWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): M
     wModel.Wires
     |> Map.filter matchInputOutputPorts
 
+/// returns a map of the wires connected from the edg1 e1 of symbol s1 to the edge e2 of symbol e2
+/// HLP23: AUTHOR Jones
 let getSelectedEdgeWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol) (e1: Edge) (e2: Edge): Map<ConnectionId, Wire> =
     let matchEdgeToEdgePorts key value : bool = 
         let edge1Wires = Map.find e1 s1.PortMaps.Order
@@ -313,19 +315,6 @@ let hasHorizontalWires (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): bool 
     (false, (Map.values selectedWires
     |> Seq.map (fun x -> x.InitialOrientation = Horizontal)))
     ||> Seq.fold (||)
-
-// sortSymbolByOutputToInput
-let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): Symbol * Symbol = 
-    let selectedWires = getSelectedSymbolWires wModel s1 s2
-    selectedWires
-    |> Map.values
-    |> Seq.head
-    |> fun x -> (x.OutputPort, x.InputPort)
-    |> fun (x,y) -> (Map.tryFind (string x) s1.PortMaps.Orientation, Map.tryFind (string y) s1.PortMaps.Orientation)
-    |> function 
-        |(Some(_), Some(_)) -> (s1,s2)
-        | _ -> (s2, s1)
-
 
 /// Function to determine if a point is within a Bounding Box.
 /// It will return True if the point is within the box, False otherwise.
@@ -454,8 +443,10 @@ let getListOfPortsFromMap (mapOfPorts:Map<Edge,string list>):string list =
     |> List.sortBy (fun (edge, _) -> edge)
     |> List.collect snd
 
+/// type to specify if we want the X position or the Y position
 type XorY = X | Y
 
+/// returns the appropriate dimension's position (X for left and right, Y for top or bottom) for the specified edge
 let getEdgePosition symbol edge = 
     match edge with
         | Left -> symbol.Pos.X
@@ -463,6 +454,7 @@ let getEdgePosition symbol edge =
         | Top -> symbol.Pos.Y
         | Bottom -> symbol.Pos.Y - symbol.Component.H * Option.defaultValue 1. symbol.VScale
 
+/// returns the total display width of a list of strings
 let getTotalLengthFromPortLabels portList = 
     let labelLengths = (
         List.map String.length portList
@@ -472,7 +464,8 @@ let getTotalLengthFromPortLabels portList =
     ||> List.fold (fun acc e -> acc + e)
     |> (*) Constants.portTextCharWidth
 
-let getMinimumHeightAndWidth symbol = 
+/// returns the minimum width of a symbol so that the labels can be displayed properly 
+let getMinimumWidth symbol = 
     let portIdMap = getCustomPortIdMap symbol.Component
     let portMaps = makeMapsConsistent portIdMap symbol
     let convertIdsToLbls currMap edge idList =
@@ -482,11 +475,8 @@ let getMinimumHeightAndWidth symbol =
         (Map.empty, portMaps.Order) ||> Map.fold convertIdsToLbls
     let minTopWidth = getTotalLengthFromPortLabels portLabels[Top]
     let minBottomWidth = getTotalLengthFromPortLabels portLabels[Bottom]
-    let minLeftHeight = getTotalLengthFromPortLabels portLabels[Left]
-    let minRightHeight = getTotalLengthFromPortLabels portLabels[Right]
     let minWidth = max minTopWidth minBottomWidth
-    let minHeight = max minLeftHeight minRightHeight
-    minHeight, minWidth
+    minWidth
 
 
 let formatSymbolPopup() : ReactElement =
@@ -511,10 +501,6 @@ let formatSymbolPopup() : ReactElement =
 
 open PopupDrawingView
 
-let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
-    let body = div [] [str "test1"]
-    let foot = div [] [str "test2"]
-    closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
 
 type PopupChoice = {
     Number: int
