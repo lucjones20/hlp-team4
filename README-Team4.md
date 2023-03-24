@@ -15,4 +15,5 @@ Angus Parry:
 - [SmartPortOrder](src/Renderer/DrawBlock/SmartPortOrder.fs)
 
 Theodoros Gkamaletsos:
-- [SmartAutoroute](src/Renderer/DrawBlock/SmartWire.fs)
+- [SmartAutoroute](src/Renderer/DrawBlock/SmartWire.fs) -> all functions in file
+- [SmartHelpers](src/Renderer/DrawBlock/SmartHelpers.fs) -> some helper functions
