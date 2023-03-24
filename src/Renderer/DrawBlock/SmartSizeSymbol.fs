@@ -50,24 +50,8 @@ let getPortEdges (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (sym
             | Some(a) -> a
             | None -> Map.find (string ip) referenceSymbol.PortMaps.Orientation
         ))
-/// this function check is the checks whether or not it is possoble the wires connected in between two symbols 
-/// to be parallel
-/// this function will return true if it is possible and false if it is impossible
-let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
-    getPortEdges wires referenceSymbol symbolToResize
-    |> Seq.toList
-    |> List.map (fun (e1, e2) -> 
-        match e1 with
-            | Left -> e2 = Right
-            | Right -> e2 = Left
-            | Top -> e2 = Bottom
-            | Bottom -> e2 = Top  
-    )
-    |> List.reduce(&&)
-
 
 let getEdgeConnections (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol) =
-    printfn "port edges %A" (getPortEdges wires referenceSymbol symbolToResize)
     ([], (getPortEdges wires referenceSymbol symbolToResize
     |> Seq.toList
     |> List.map (fun (e1, e2) ->
@@ -88,11 +72,9 @@ let getEdgeConnections (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol
 /// this function also sorts the symbols into a reference symbol (whose height or width will not be changed)
 /// and a symbol to resize
 /// the reference symbol is chosen as the symbol that outputs into the other symbol (convention that I chose)
-let getCase (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): ResizeScenario * Symbol * Symbol = 
+let getConnectingWireOrientation (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): ResizeScenario * Symbol * Symbol = 
     let selectedWires = getSelectedSymbolWires wModel s1 s2
     if (Map.isEmpty selectedWires) then
-        // if not (isValidResize (getSelectedSymbolWires wModel s2 s1) s2 s1) then 
-        printfn "%A"(getEdgeConnections selectedWires s1 s2)
         match getEdgeConnections (getSelectedSymbolWires wModel s2 s1) s2 s1 with
             | [] -> Mixed, s1, s2
             | a::tail ->(match (List.fold (fun acc e -> 
@@ -106,12 +88,7 @@ let getCase (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): ResizeScenario *
                         | true -> a, s2, s1
                         | false -> Mixed, s2, s1
                 )
-    //     else if hasHorizontalWires wModel s2 s1 then
-    //         Horizontal, s2, s1
-    //     else
-    //         Vertical, s2, s1
     else
-        printfn "this one %A"(getEdgeConnections selectedWires s1 s2)
         match getEdgeConnections (getSelectedSymbolWires wModel s1 s2) s2 s1 with
             | [] -> Mixed, s1, s2
             | a::tail ->(match (List.fold (fun acc e -> 
@@ -125,10 +102,7 @@ let getCase (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol): ResizeScenario *
                         | true -> a, s1, s2
                         | false -> Mixed, s1, s2
                 )
-        // else if hasHorizontalWires wModel s1 s2 then
-        //     Horizontal, s1, s2
-        // else 
-        //     Vertical, s1, s2
+
 
 let checkEdgeIsCorrect e1 e2 wModel referenceSymbol symbolToResize = 
     getSelectedSymbolWires wModel referenceSymbol symbolToResize
@@ -139,11 +113,6 @@ let checkEdgeIsCorrect e1 e2 wModel referenceSymbol symbolToResize =
         (List.contains (string x) (Map.find e1 referenceSymbol.PortMaps.Order)
         && 
         List.contains (string y) (Map.find e2 symbolToResize.PortMaps.Order))
-        // ||
-        // (List.contains (string x) (Map.find e2 referenceSymbol.PortMaps.Order)
-        // && 
-        // List.contains (string y) (Map.find e1 symbolToResize.PortMaps.Order))
-
     ))
     |> List.reduce (||)
 
@@ -157,7 +126,6 @@ let checkForConflictingWiring (xy:XorY) wModel referenceSymbol symbolToResize =
         match xy with
             |X -> abs (ip.X-op.X)
             |Y -> abs (ip.Y-op.Y))
-    |> fun x -> printfn "%A" x ; x
     |> fun lst -> 
         match lst with
             | [] -> 0
@@ -200,7 +168,9 @@ let rec orderWiresByOutputPort selectedWires portList acc =
             )
         |_ -> acc
 
-/// type to help know on which axis we have to move the symbol
+let scaleDimension scale = function 
+    | None -> Some (scale)
+    | Some(a) -> Some (a * scale)
 
 /// this function calculates the difference in either the X position or the Y position (depending on the input xy)
 /// of the first wire's input and output ports 
@@ -237,360 +207,12 @@ let getNewPortOrder (outputPorts: string list) (inputPorts: string list) (symbol
     |> correctOrderingOfList inputPorts 
     |> fun x -> Map.add outputEdge x symbolToResize.PortMaps.Order
 
-
-/// type used for the arguments of the updateSymbolSize function (code readability)
-type UpdateSymbolSizeArgs = {
-    heightOrWidthLens_ : Lens<Component, float> 
-    xOrYLens_ : Lens<XYPos, float>
-    XY: XorY 
-    newDimension: float
-    newPorts: Map<Edge, list<string>>
-    referenceSymbol: Symbol
-    symbolToResize: Symbol
-}
-
-/// this function will update the size of the symbol as well as align the symbol and its label box
-/// so that either the top or the right are aligned
-/// this function will also change the order of the ports
-let updateSymbolSize (args: UpdateSymbolSizeArgs) =  
-    let (refSymbolPos, refLabelPos) = (args.XY
-    |> function
-        |Y -> args.referenceSymbol.Pos.Y, args.referenceSymbol.LabelBoundingBox.TopLeft.Y
-        |X -> args.referenceSymbol.Pos.X, args.referenceSymbol.LabelBoundingBox.TopLeft.X
-    )
-    Optic.set (component_ >-> args.heightOrWidthLens_) args.newDimension args.symbolToResize
-    |> Optic.set (pos_ >-> args.xOrYLens_) refSymbolPos
-    |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> args.xOrYLens_) refLabelPos
-    |> Optic.set (portMaps_ >-> order_) args.newPorts
-
-
 /// this function changes the position of a symbol by the offset specified
 let updateSymbolPosition (s: Symbol) (xOrYLens_: Lens<XYPos, float>) (offset: float): Symbol list = 
     s
     |> Optic.map (pos_ >-> xOrYLens_) (fun x -> x - offset)
     |> Optic.map (labelBoundingBox_ >-> topLeft_ >-> xOrYLens_) (fun x -> x - offset)
     |> fun x -> [x]
-
-/// HLP23: To test this, it must be given two symbols interconnected by wires. It then resizes symbolToSize
-/// so that the connecting wires are exactly straight
-/// HLP23: It should work out the interconnecting wires (wires) from 
-////the two symbols, wModel.Wires and sModel.Ports
-/// It will do nothing if symbolToOrder is not a Custom component (which has adjustable size).
-/// HLP23: when this function is written replace teh XML comment by something suitable concisely
-/// stating what it does.
-let reSizeSymbol 
-    (wModel: BusWireT.Model) 
-    (symbolToSize: Symbol) 
-    (otherSymbol: Symbol) 
-    (updateSymbolWires)
-    (boxesIntercect)
-     =
-
-    getCase wModel symbolToSize otherSymbol
-    |> fun (case, referenceSymbol, symbolToResize) -> 
-        match case with 
-            | RtL | LtR ->
-                match checkForConflictingWiring X wModel referenceSymbol symbolToResize with
-                    | -1 -> printfn "yessir"; {wModel with PopupViewFunc = resizeSelectPopup referenceSymbol symbolToResize Left Right} 
-                    | 0 | 1 -> wModel
-                    | _ -> 
-                        let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
-                                match checkEdgeIsCorrect Left Right wModel referenceSymbol symbolToResize with
-                                    | true -> Left, Right 
-                                    | false -> Right, Left
-                        )
-                        let edgePortSizeRef = float (List.length (Map.find edgePortSizeRefEdge referenceSymbol.PortMaps.Order))
-                        let edgePortSizeResize = float (List.length (Map.find edgePortSizeResizeEdge symbolToResize.PortMaps.Order))
-                        let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.gap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.gap))
-                        let newVerticalScale = (Option.defaultValue 1. referenceSymbol.VScale) *  referenceSymbol.Component.H * (ratio / symbolToResize.Component.H)
-                        // get the relevant input and output ports of the symbols
-                        let (outputEdge, inputEdge, outputPorts, inputPorts) = getOutputInputPorts referenceSymbol symbolToResize
-
-                        let newPorts = (
-                            //getSelectedSymbolWires wModel referenceSymbol symbolToResize
-                            //|> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge 
-                            symbolToResize.PortMaps.Order
-                        ) 
-                        
-                        let rightSymbol' = (
-                            Optic.set (vScale_) (Some(newVerticalScale)) symbolToResize
-                            |> Optic.set (pos_ >-> y_) referenceSymbol.Pos.Y
-                            |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> y_ ) referenceSymbol.LabelBoundingBox.TopLeft.Y
-                            |> Optic.set (portMaps_ >-> order_) newPorts
-                        )
-                        
-                        // update the model with the new symbol
-                        let interModel = updateModelSymbols wModel [rightSymbol']
-                        if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect
-                        then printfn "Overlap Detected"
-                        else printfn "no overlap"
-                        
-
-                        // currently the model would move the symbols so that the top of the symbols are on the same line 
-                        // the wires would be parallel if the ports are aligned, but they are not necessarely aligned at this point
-                        // the next part of the code makes sure that the wires are aligned
-
-                        // slide the position of the symbol by the offset calculated
-                        ((getSelectedSymbolWires interModel referenceSymbol rightSymbol', interModel.Symbol)
-                        ||> getPortOffset Y
-                        |> getPortOffsetScale Y referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
-                        |> updateSymbolPosition rightSymbol' y_
-                        |> updateModelSymbols interModel
-                        |> fun x -> updateSymbolWires x rightSymbol'.Id)
-                    // |true -> printfn "yessir"; {wModel with PopupViewFunc = Some(testPopup)}
-            | TtB | BtT -> 
-                match checkForConflictingWiring Y wModel referenceSymbol symbolToResize with
-                    | -1 -> printfn "yessir"; {wModel with PopupViewFunc = resizeSelectPopup referenceSymbol symbolToResize Top Bottom} 
-                    | 0 | 1 -> wModel
-                    | _ -> 
-                        // get the relevant input and output ports of the symbols
-                        let (outputEdge, inputEdge, outputPorts, inputPorts) = getOutputInputPorts referenceSymbol symbolToResize //AHHHHHHHHHH
-                        // compute the new width of the symbol to resize
-                        // this will result in all the wires between both signals being parallel if the symbols are aligned correctly
-                        let newWidth = referenceSymbol.Component.W * (((float (List.length (Map.find inputEdge (symbolToResize.PortMaps.Order))) - 1.0) + 2.0 * Constants.wideGap) / ((float (List.length (Map.find outputEdge referenceSymbol.PortMaps.Order)) - 1.0 ) + 2.0 * Constants.wideGap))
-                        let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
-                            match checkEdgeIsCorrect Top Bottom wModel referenceSymbol symbolToResize with
-                                | true -> Top, Bottom 
-                                | false -> Bottom, Top
-                        )
-
-                        let edgePortSizeRef = float (List.length (Map.find edgePortSizeRefEdge referenceSymbol.PortMaps.Order))
-                        let edgePortSizeResize = float (List.length (Map.find edgePortSizeResizeEdge symbolToResize.PortMaps.Order))
-                        let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.wideGap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.wideGap))
-                        let newHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
-                        
-                        let newPorts = (
-                            //getSelectedSymbolWires wModel referenceSymbol symbolToResize
-                            //|> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge
-                            symbolToResize.PortMaps.Order
-                        )
-                        let rightSymbol' =(
-                            Optic.set (hScale_) (Some(newHorizontalScale)) symbolToResize
-                                |> Optic.set (pos_ >-> x_) referenceSymbol.Pos.X
-                                |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> x_ ) referenceSymbol.LabelBoundingBox.TopLeft.X
-                                |> Optic.set (portMaps_ >-> order_) newPorts
-                        )
-                        // update the model with the new symbols
-                        let interModel = updateModelSymbols wModel [rightSymbol']
-
-                        // slide the position of the symbol by the calculated offset
-                        ((getSelectedSymbolWires interModel referenceSymbol rightSymbol', interModel.Symbol)
-                        ||> getPortOffset X
-                        |> getPortOffsetScale X referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
-                        |> updateSymbolPosition rightSymbol' x_
-                        |> updateModelSymbols interModel
-                        |> fun x -> updateSymbolWires x rightSymbol'.Id)
-
-
-
-            | _ -> wModel
-        
- 
-
-
-
-    // |> function
-    //     | Horizontal, referenceSymbol, symbolToResize ->
-    //         printfn "detected horizontal";
-    //         // compute the new height of the symbol to resize
-    //         // this will result in all the wires between both signals being parallel if the symbols are aligned correctly
-    //         let newHeight = referenceSymbol.Component.H * (((float symbolToResize.Component.InputPorts.Length - 1.0) + 2.0 * Constants.gap) / ((float referenceSymbol.Component.OutputPorts.Length - 1.0 ) + 2.0 * Constants.gap))
-
-    //         // get the relevant input and output ports of the symbols
-    //         let (outputEdge, inputEdge, outputPorts, inputPorts) = getOutputInputPorts referenceSymbol symbolToResize
-
-    //         let newPorts = (
-    //             getSelectedSymbolWires wModel referenceSymbol symbolToResize
-    //             |> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge 
-    //         ) 
-            
-    //         // arguments for updateSymbolSize
-    //         let args = {
-    //             heightOrWidthLens_ = h_;
-    //             xOrYLens_ = y_;
-    //             XY = Y;
-    //             newDimension = newHeight;
-    //             newPorts = newPorts;
-    //             referenceSymbol = referenceSymbol;
-    //             symbolToResize = symbolToResize
-    //         }
-    //         let rightSymbol' = updateSymbolSize args
-            
-    //         // update the model with the new symbol
-    //         let interModel = updateModelSymbols wModel [rightSymbol']
-            
-
-    //         // currently the model would move the symbols so that the top of the symbols are on the same line 
-    //         // the wires would be parallel if the ports are aligned, but they are not necessarely aligned at this point
-    //         // the next part of the code makes sure that the wires are aligned
-
-    //         // slide the position of the symbol by the offset calculated
-    //         (getSelectedSymbolWires interModel referenceSymbol rightSymbol', interModel.Symbol)
-    //         ||> getPortOffset Y
-    //         |> updateSymbolPosition rightSymbol' y_
-    //         |> updateModelSymbols interModel
-    //         |> fun x -> updateSymbolWires x rightSymbol'.Id 
-
-    
-    //     | Vertical, referenceSymbol, symbolToResize -> 
-    //         printfn "detected vertical"
-            
-    //         printfn "%A" referenceSymbol.Component.W
-    //         printfn "%A" symbolToResize.PortMaps.Order
-    //         // get the relevant input and output ports of the symbols
-    //         let (outputEdge, inputEdge, outputPorts, inputPorts) = getOutputInputPorts referenceSymbol symbolToResize //AHHHHHHHHHH
-    //         // compute the new width of the symbol to resize
-    //         // this will result in all the wires between both signals being parallel if the symbols are aligned correctly
-    //         let newWidth = referenceSymbol.Component.W * (((float (List.length (Map.find inputEdge (symbolToResize.PortMaps.Order))) - 1.0) + 2.0 * Constants.wideGap) / ((float (List.length (Map.find outputEdge referenceSymbol.PortMaps.Order)) - 1.0 ) + 2.0 * Constants.wideGap))
-            
-    //         let newPorts = (
-    //             getSelectedSymbolWires wModel referenceSymbol symbolToResize
-    //             |> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge
-    //         )
-
-    //         // arguments for updateSymbolSize
-    //         let args = {
-    //             heightOrWidthLens_ = w_;
-    //             xOrYLens_ = x_;
-    //             XY = Y;
-    //             newDimension = newWidth;
-    //             newPorts = newPorts;
-    //             referenceSymbol = referenceSymbol;
-    //             symbolToResize = symbolToResize
-    //         }
-    //         let rightSymbol' = updateSymbolSize args
-
-    //         // update the model with the new symbols
-    //         let interModel = updateModelSymbols wModel [rightSymbol']
-
-    //         // slide the position of the symbol by the calculated offset
-    //         (getSelectedSymbolWires interModel referenceSymbol rightSymbol', interModel.Symbol)
-    //         ||> getPortOffset X
-    //         |> updateSymbolPosition rightSymbol' x_
-    //         |> updateModelSymbols interModel
-    //         |> fun x -> updateSymbolWires x rightSymbol'.Id
-
-    //     | Mixed, _ , _ -> 
-    //         printfn "detected mixed"
-
-    //         // symbols don't allow parallel wires
-    //         // do nothing and return the model
-    //         wModel
-    //     | RtL, referenceSymbol, symbolToResize ->
-
-    //         let currentHorizontalScale = Option.defaultValue 1. referenceSymbol.HScale 
-    //         let currentVerticalScale = Option.defaultValue 1. referenceSymbol.VScale
-
-    //         let edgePortSizeRef = float (List.length (Map.find Right referenceSymbol.PortMaps.Order))
-    //         let edgePortSizeResize = float (List.length (Map.find Left symbolToResize.PortMaps.Order))
-    //         let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.gap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.gap))
-    //         let newVerticalScale = referenceSymbol.Component.H * (ratio / symbolToResize.Component.H)
-    //         // let newHeightScale = referenceSymbol.Component.H
-    //         // get the relevant input and output ports of the symbols
-    //         let (outputEdge, inputEdge, outputPorts, inputPorts) = getOutputInputPorts referenceSymbol symbolToResize
-
-    //         let newPorts = (
-    //             getSelectedSymbolWires wModel referenceSymbol symbolToResize
-    //             |> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge 
-    //         ) 
-            
-    //         // arguments for updateSymbolSize
-    //         // let args = {
-    //         //     heightOrWidthLens_ = h_;
-    //         //     xOrYLens_ = y_;
-    //         //     XY = Y;
-    //         //     newDimension = newHeight;
-    //         //     newPorts = newPorts;
-    //         //     referenceSymbol = referenceSymbol;
-    //         //     symbolToResize = symbolToResize
-    //         // }
-    //         // let rightSymbol' = updateSymbolSize args
-    //         // let (refSymbolPos, refLabelPos) = (args.XY
-    //         //     |> function
-    //         //         |Y -> args.referenceSymbol.Pos.Y, args.referenceSymbol.LabelBoundingBox.TopLeft.Y
-    //         //         |X -> args.referenceSymbol.Pos.X, args.referenceSymbol.LabelBoundingBox.TopLeft.X
-    //         //     )
-    //         let rightSymbol' = (
-    //             Optic.set (vScale_) (Some(newVerticalScale)) symbolToResize
-    //             |> Optic.set (pos_ >-> y_) referenceSymbol.Pos.Y
-    //             |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> y_ ) referenceSymbol.LabelBoundingBox.TopLeft.Y
-    //             |> Optic.set (portMaps_ >-> order_) newPorts
-    //         )
-            
-    //         // update the model with the new symbol
-    //         let interModel = updateModelSymbols wModel [rightSymbol']
-            
-
-    //         // currently the model would move the symbols so that the top of the symbols are on the same line 
-    //         // the wires would be parallel if the ports are aligned, but they are not necessarely aligned at this point
-    //         // the next part of the code makes sure that the wires are aligned
-
-    //         // slide the position of the symbol by the offset calculated
-    //         (getSelectedSymbolWires interModel referenceSymbol rightSymbol', interModel.Symbol)
-    //         ||> getPortOffset Y
-    //         |> updateSymbolPosition rightSymbol' y_
-    //         |> updateModelSymbols interModel
-    //         |> fun x -> updateSymbolWires x rightSymbol'.Id 
-        
-    //     |LtR, referenceSymbol, symbolToResize ->
-
-    //         let newHeight= referenceSymbol.Component.H * (((float symbolToResize.Component.InputPorts.Length - 1.0) + 2.0 * Constants.gap) / ((float referenceSymbol.Component.OutputPorts.Length - 1.0 ) + 2.0 * Constants.gap))
-
-    //         let currentHorizontalScale = Option.defaultValue 1. referenceSymbol.HScale 
-    //         let currentVerticalScale = Option.defaultValue 1. referenceSymbol.VScale
-
-    //         let edgePortSizeRef = float (List.length (Map.find Left referenceSymbol.PortMaps.Order))
-    //         let edgePortSizeResize = float (List.length (Map.find Right symbolToResize.PortMaps.Order))
-    //         printfn "%A" edgePortSizeRef
-    //         printfn "%A" edgePortSizeResize
-    //         let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.gap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.gap))
-    //         let newVerticalScale = referenceSymbol.Component.H * (ratio / symbolToResize.Component.H)
-    //         // let newHeightScale = referenceSymbol.Component.H
-    //         // get the relevant input and output ports of the symbols
-    //         let (outputEdge, inputEdge, outputPorts, inputPorts) = getOutputInputPorts referenceSymbol symbolToResize
-
-    //         let newPorts = (
-    //             getSelectedSymbolWires wModel referenceSymbol symbolToResize
-    //             |> getNewPortOrder outputPorts inputPorts symbolToResize inputEdge 
-    //         ) 
-            
-    //         // arguments for updateSymbolSize
-    //         // let args = {
-    //         //     heightOrWidthLens_ = h_;
-    //         //     xOrYLens_ = y_;
-    //         //     XY = Y;
-    //         //     newDimension = newHeight;
-    //         //     newPorts = newPorts;
-    //         //     referenceSymbol = referenceSymbol;
-    //         //     symbolToResize = symbolToResize
-    //         // }
-    //         // let rightSymbol' = updateSymbolSize args
-    //         // let (refSymbolPos, refLabelPos) = (args.XY
-    //         //     |> function
-    //         //         |Y -> args.referenceSymbol.Pos.Y, args.referenceSymbol.LabelBoundingBox.TopLeft.Y
-    //         //         |X -> args.referenceSymbol.Pos.X, args.referenceSymbol.LabelBoundingBox.TopLeft.X
-    //         //     )
-    //         let rightSymbol' = (
-    //             Optic.set (vScale_) (Some(newVerticalScale)) symbolToResize
-    //             |> Optic.set (pos_ >-> y_) referenceSymbol.Pos.Y
-    //             |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> y_ ) referenceSymbol.LabelBoundingBox.TopLeft.Y
-    //             |> Optic.set (portMaps_ >-> order_) newPorts
-    //         )
-            
-    //         // update the model with the new symbol
-    //         let interModel = updateModelSymbols wModel [rightSymbol']
-            
-
-    //         // currently the model would move the symbols so that the top of the symbols are on the same line 
-    //         // the wires would be parallel if the ports are aligned, but they are not necessarely aligned at this point
-    //         // the next part of the code makes sure that the wires are aligned
-
-    //         // slide the position of the symbol by the offset calculated
-    //         (getSelectedSymbolWires interModel referenceSymbol rightSymbol', interModel.Symbol)
-    //         ||> getPortOffset Y
-    //         |> updateSymbolPosition rightSymbol' y_
-    //         |> updateModelSymbols interModel
-    //         |> fun x -> updateSymbolWires x rightSymbol'.Id 
 
 let selectiveResizeSymbol 
     (wModel: BusWireT.Model)
@@ -599,8 +221,9 @@ let selectiveResizeSymbol
     (edge1: Edge)
     (edge2: Edge)
     updateSymbolWires
+    boxesIntercect
     =
-    getCase wModel referenceSymbol symbolToResize
+    getConnectingWireOrientation wModel referenceSymbol symbolToResize
     |> fun (case, referenceSymbol, symbolToResize) ->
         match case with
             | RtL | LtR -> 
@@ -618,9 +241,12 @@ let selectiveResizeSymbol
                     // |> Optic.set (portMaps_ >-> order_) symbolToResize.PortMaps.
                 )
                 let interModel = updateModelSymbols wModel [rightSymbol']
-                printfn "%A" newVerticalScale
+                if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect
+                then printfn "Overlap Detected"
+                else printfn "no overlap"
                 ((getSelectedEdgeWires wModel referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge, interModel.Symbol)
                 ||> getPortOffset Y
+                |> getPortOffsetScale Y referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
                 |> updateSymbolPosition rightSymbol' y_
                 |> updateModelSymbols interModel
                 |> fun x -> updateSymbolWires x rightSymbol'.Id)
@@ -631,19 +257,137 @@ let selectiveResizeSymbol
                 let edgePortSizeRef = float (List.length (Map.find edgePortSizeRefEdge referenceSymbol.PortMaps.Order))
                 let edgePortSizeResize = float (List.length (Map.find edgePortSizeResizeEdge symbolToResize.PortMaps.Order))
                 let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.wideGap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.wideGap))
-                let newHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
-
+                let tmpNewHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
+                let minWidthScale = 
+                    getMinimumHeightAndWidth symbolToResize
+                    |> snd
+                    |> fun x -> x / symbolToResize.Component.W
+                let newHorizontalScale = (
+                    tmpNewHorizontalScale
+                    |> max minWidthScale 
+                )
+                let scaleRatio = newHorizontalScale / tmpNewHorizontalScale
                 let rightSymbol' = (
                     Optic.set (hScale_) (Some(newHorizontalScale)) symbolToResize
                     |> Optic.set (pos_ >-> x_) referenceSymbol.Pos.X
                     |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> x_ ) referenceSymbol.LabelBoundingBox.TopLeft.X
                     // |> Optic.set (portMaps_ >-> order_) symbolToResize.PortMaps.
                 )
-                let interModel = updateModelSymbols wModel [rightSymbol']
-                ((getSelectedEdgeWires wModel referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge, interModel.Symbol)
+                let referenceSymbol' = Optic.map (hScale_) (scaleDimension scaleRatio) referenceSymbol
+                let interModel = updateModelSymbols wModel [rightSymbol'; referenceSymbol']
+                if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect
+                then printfn "Overlap Detected"
+                else printfn "no overlap"
+                ((getSelectedEdgeWires wModel referenceSymbol' symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge, interModel.Symbol)
                 ||> getPortOffset X
+                |> getPortOffsetScale X referenceSymbol' rightSymbol' edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
                 |> updateSymbolPosition rightSymbol' x_
                 |> updateModelSymbols interModel
                 |> fun x -> updateSymbolWires x rightSymbol'.Id)
             |Mixed -> failwith "should never happen"
 
+
+/// HLP23: To test this, it must be given two symbols interconnected by wires. It then resizes symbolToSize
+/// so that the connecting wires are exactly straight
+/// HLP23: It should work out the interconnecting wires (wires) from 
+////the two symbols, wModel.Wires and sModel.Ports
+/// It will do nothing if symbolToOrder is not a Custom component (which has adjustable size).
+/// HLP23: when this function is written replace teh XML comment by something suitable concisely
+/// stating what it does.
+let reSizeSymbol 
+    (wModel: BusWireT.Model) 
+    (symbolToSize: Symbol) 
+    (otherSymbol: Symbol) 
+    (updateSymbolWires)
+    (boxesIntercect)
+     =
+    
+    getConnectingWireOrientation wModel symbolToSize otherSymbol
+    |> fun (case, referenceSymbol, symbolToResize) -> 
+        match case with 
+            | RtL | LtR ->
+                match checkForConflictingWiring X wModel referenceSymbol symbolToResize with
+                    | -1 -> {wModel with PopupViewFunc = resizeSelectPopup referenceSymbol symbolToResize Left Right} 
+                    | 0 | 1 -> wModel
+                    | _ -> 
+                        let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
+                                match checkEdgeIsCorrect Left Right wModel referenceSymbol symbolToResize with
+                                    | true -> Left, Right 
+                                    | false -> Right, Left
+                        )
+                        let edgePortSizeRef = float (List.length (Map.find edgePortSizeRefEdge referenceSymbol.PortMaps.Order))
+                        let edgePortSizeResize = float (List.length (Map.find edgePortSizeResizeEdge symbolToResize.PortMaps.Order))
+                        let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.gap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.gap))
+                        let newVerticalScale = (Option.defaultValue 1. referenceSymbol.VScale) *  referenceSymbol.Component.H * (ratio / symbolToResize.Component.H)
+                        
+                        let rightSymbol' = (
+                            Optic.set (vScale_) (Some(newVerticalScale)) symbolToResize
+                            |> Optic.set (pos_ >-> y_) referenceSymbol.Pos.Y
+                            |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> y_ ) referenceSymbol.LabelBoundingBox.TopLeft.Y
+                        )
+                        
+                        // update the model with the new symbol
+                        let interModel = updateModelSymbols wModel [rightSymbol']
+                        if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect then
+                            selectiveResizeSymbol wModel symbolToResize referenceSymbol edgePortSizeResizeEdge edgePortSizeRefEdge updateSymbolWires boxesIntercect
+                        else 
+                        
+
+                            // currently the model would move the symbols so that the top of the symbols are on the same line 
+                            // the wires would be parallel if the ports are aligned, but they are not necessarely aligned at this point
+                            // the next part of the code makes sure that the wires are aligned
+
+                            // slide the position of the symbol by the offset calculated
+                            ((getSelectedSymbolWires interModel referenceSymbol rightSymbol', interModel.Symbol)
+                            ||> getPortOffset Y
+                            |> getPortOffsetScale Y referenceSymbol symbolToResize edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
+                            |> updateSymbolPosition rightSymbol' y_
+                            |> updateModelSymbols interModel
+                            |> fun x -> updateSymbolWires x rightSymbol'.Id)
+
+            | TtB | BtT -> 
+                match checkForConflictingWiring Y wModel referenceSymbol symbolToResize with
+                    | -1 -> {wModel with PopupViewFunc = resizeSelectPopup referenceSymbol symbolToResize Top Bottom} 
+                    | 0 | 1 -> wModel
+                    | _ -> 
+                        let (edgePortSizeRefEdge, edgePortSizeResizeEdge) = (
+                            match checkEdgeIsCorrect Top Bottom wModel referenceSymbol symbolToResize with
+                                | true -> Top, Bottom 
+                                | false -> Bottom, Top
+                        )
+
+                        let edgePortSizeRef = float (List.length (Map.find edgePortSizeRefEdge referenceSymbol.PortMaps.Order))
+                        let edgePortSizeResize = float (List.length (Map.find edgePortSizeResizeEdge symbolToResize.PortMaps.Order))
+                        let ratio = (((edgePortSizeResize - 1.0) + 2.0 * Constants.wideGap) / ((edgePortSizeRef - 1.0) + 2.0 * Constants.wideGap))
+                        let tmpNewHorizontalScale = (Option.defaultValue 1. referenceSymbol.HScale) * referenceSymbol.Component.W * (ratio / symbolToResize.Component.W)
+                        let minWidthScale = 
+                            getMinimumHeightAndWidth symbolToResize
+                            |> snd
+                            |> fun x -> x / symbolToResize.Component.W
+                        let newHorizontalScale = (
+                            tmpNewHorizontalScale
+                            |> max minWidthScale 
+                        )
+                        let scaleRatio = newHorizontalScale / tmpNewHorizontalScale
+                        let rightSymbol' =(
+                            Optic.set (hScale_) (Some(newHorizontalScale)) symbolToResize
+                                |> Optic.set (pos_ >-> x_) referenceSymbol.Pos.X
+                                |> Optic.set (labelBoundingBox_ >-> topLeft_ >-> x_ ) referenceSymbol.LabelBoundingBox.TopLeft.X
+                        )
+                        let referenceSymbol' = Optic.map (hScale_) (scaleDimension scaleRatio) referenceSymbol
+                        // update the model with the new symbols
+                        let interModel = updateModelSymbols wModel [rightSymbol'; referenceSymbol'] 
+                        if symbolOverlaps rightSymbol' interModel.Symbol boxesIntercect then
+                            selectiveResizeSymbol wModel symbolToResize referenceSymbol edgePortSizeResizeEdge edgePortSizeRefEdge updateSymbolWires boxesIntercect
+                        else
+
+                            // slide the position of the symbol by the calculated offset
+                            ((getSelectedSymbolWires interModel referenceSymbol' rightSymbol', interModel.Symbol)
+                            ||> getPortOffset X
+                            |> getPortOffsetScale X referenceSymbol' rightSymbol' edgePortSizeRefEdge edgePortSizeResizeEdge interModel.Symbol
+                            |> updateSymbolPosition rightSymbol' x_
+                            |> updateModelSymbols interModel
+                            |> fun x -> updateSymbolWires x rightSymbol'.Id)
+
+            | _ -> wModel
+        

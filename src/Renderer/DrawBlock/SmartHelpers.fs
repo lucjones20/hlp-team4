@@ -111,28 +111,9 @@ let updateModelWires
         ||> List.fold (fun wireMap wireToAdd -> Map.add wireToAdd.WId wireToAdd wireMap))
 
 
+module Constants = 
+    let portTextCharWidth = 8.
 
-/// Find the Y position of input ports for a given symbol
-/// Function takes in a SymbolT model and a symbol
-/// This uses the getPortLocation from the Symbol module and applies it to the
-/// list of port ids located on the left side of the module
-/// HLP23: AUTHOR Jones
-let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list = 
-    symbol.PortMaps.Order.TryFind Left // try to get list of port ids of the symbol
-    |> Option.defaultValue [] // extract the list from option
-    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto the list of port ids
-
-
-/// Find the Y position of output ports of a given symbol
-/// Function takes in a SymbolT model and a symbol
-/// This uses the getPortLocation from the Symbol module and applies it to the
-/// list of port ids located on the right side of the module
-/// HLP23: AUTHOR Jones
-let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list= 
-    symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
-    |> Option.defaultValue [] // extract list from option
-    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
- 
 
 /// Find the orientation of a wire segment given its index
 ///HLP23: AUTHOR Sougioultzoglou
@@ -346,21 +327,6 @@ let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol)
         | _ -> (s2, s1)
 
 
-//type ResizeScenario = |Horizontal | Vertical | Mixed
-
-//type ResizeScenario = |HorizontalResize | Verticalresize | MixedResize
-
-
-// change name
-let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
-    wires
-    |> Map.values
-    |> Seq.map (fun x -> (x.OutputPort, x.InputPort))
-    |> Seq.map (fun (op,ip) -> (Map.find (string op) referenceSymbol.PortMaps.Orientation), (Map.find (string ip) symbolToResize.PortMaps.Orientation))
-    |> Seq.map (fun (e1, e2) -> e1 = e2)
-    |> Seq.reduce(||)
-
-
 /// Function to determine if a point is within a Bounding Box.
 /// It will return True if the point is within the box, False otherwise.
 /// HLP 23: Author Gkamaletsos
@@ -497,6 +463,31 @@ let getEdgePosition symbol edge =
         | Top -> symbol.Pos.Y
         | Bottom -> symbol.Pos.Y - symbol.Component.H * Option.defaultValue 1. symbol.VScale
 
+let getTotalLengthFromPortLabels portList = 
+    let labelLengths = (
+        List.map String.length portList
+        |> List.map (float)
+    )
+    (0., labelLengths)
+    ||> List.fold (fun acc e -> acc + e)
+    |> (*) Constants.portTextCharWidth
+
+let getMinimumHeightAndWidth symbol = 
+    let portIdMap = getCustomPortIdMap symbol.Component
+    let portMaps = makeMapsConsistent portIdMap symbol
+    let convertIdsToLbls currMap edge idList =
+        let lblLst = List.map (fun id -> portIdMap[id]) idList
+        Map.add edge lblLst currMap
+    let portLabels = 
+        (Map.empty, portMaps.Order) ||> Map.fold convertIdsToLbls
+    let minTopWidth = getTotalLengthFromPortLabels portLabels[Top]
+    let minBottomWidth = getTotalLengthFromPortLabels portLabels[Bottom]
+    let minLeftHeight = getTotalLengthFromPortLabels portLabels[Left]
+    let minRightHeight = getTotalLengthFromPortLabels portLabels[Right]
+    let minWidth = max minTopWidth minBottomWidth
+    let minHeight = max minLeftHeight minRightHeight
+    minHeight, minWidth
+
 
 let formatSymbolPopup() : ReactElement =
     let styledSpan styles txt = span [Style styles] [str <| txt]
@@ -618,11 +609,11 @@ let multipleChoicePopupFunc
 let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: Edge)
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
 
-    let body = div [] [str "explanation"]
+    let body = div [] [str "This is complex resizing! Would you like to resize based on the inner ports or the outer ports?"]
     let (choices: PopupChoice list) =
         [{Number = 1; ButtonColor = IsPrimary; ButtonText = "Resize based on inner ports"};
         {Number = 2; ButtonColor = IsPrimary; ButtonText = "Resize based on outer ports"};
-        {Number = 3; ButtonColor = IsLight; ButtonText = "Do not resize"};
+        {Number = 3; ButtonColor = IsLight; ButtonText = "Don't resize"};
         ]
 
     let buttonAction selectedChoiceNumber dispatch  _ =

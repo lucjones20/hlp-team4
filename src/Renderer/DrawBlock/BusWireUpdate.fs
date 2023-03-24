@@ -72,6 +72,16 @@ let updateSymbolWires (model: Model) (compId: ComponentId) =
         |> Map.ofList
     { model with Wires = newWires }
 
+
+/// Calculates if two bounding boxes intersect by comparing corner coordinates of each box
+let boxesIntersect (box1: BoundingBox) (box2: BoundingBox) =
+    // Requires min and max since H & W can be negative, i.e. we don't know which corner is which automatically
+    // Boxes intersect if there is overlap in both x and y coordinates 
+    min box1.TopLeft.X (box1.TopLeft.X + box1.W) < max box2.TopLeft.X (box2.TopLeft.X + box2.W)
+    && min box2.TopLeft.X (box2.TopLeft.X + box2.W) < max box1.TopLeft.X (box1.TopLeft.X + box1.W)
+    && min box1.TopLeft.Y (box1.TopLeft.Y + box1.H) < max box2.TopLeft.Y (box2.TopLeft.Y + box2.H)
+    && min box2.TopLeft.Y (box2.TopLeft.Y + box2.H) < max box1.TopLeft.Y (box1.TopLeft.Y + box1.H)
+
 /// HLP23: function to update the wires without the use of smartAutoroute as that would break other functionalites
 // let updateWireNotSmart (model : Model) (wire : Wire) (reverse : bool) =
 //     let newPort = 
@@ -509,7 +519,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
     | SelectiveResize (s1, s2, e1, e2) -> 
         //|> function 
         //    | Some (s1, s2) -> 
-        let wires = SmartSizeSymbol.selectiveResizeSymbol model s2 s1 e1 e2 updateSymbolWires
+        let wires = SmartSizeSymbol.selectiveResizeSymbol model s2 s1 e1 e2 updateSymbolWires boxesIntersect
         wires, Cmd.none
             //| _ -> printfn "error for selective" ; model, Cmd.none 
         // let wires = SmartSizeSymbol.selectiveResizeSymbol model symbol1 symbol2 edge1 edge2 BusWireUpdate.updateSymbolWires

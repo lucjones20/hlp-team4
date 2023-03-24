@@ -802,12 +802,13 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
          |> function
             | Some (s1,s2) ->
 
-                let reorderOne = SmartPortOrder.reOrderPorts model.Wire s1 s2 BusWireUpdate.updateSymbolWires
-                let reorderTwo = SmartPortOrder.reOrderPorts reorderOne s2 s1 BusWireUpdate.updateSymbolWires
-                let resize = SmartSizeSymbol.reSizeSymbol reorderTwo s1 s2 BusWireUpdate.updateSymbolWires boxesIntersect
+                let reorderOne = SmartPortOrder.reOrderPorts model.Wire s2 s1 BusWireUpdate.updateSymbolWires
 
-                //let resize = SmartSizeSymbol.selectiveResizeSymbol reorder s2 s1 Left Right BusWireUpdate.updateSymbolWires
+                //let reorderTwo = SmartPortOrder.reOrderPorts reorderOne s1 s2 BusWireUpdate.updateSymbolWires
+                //let resize = SmartSizeSymbol.reSizeSymbol reorderOne s1 s2 BusWireUpdate.updateSymbolWires boxesIntersect
+                
                 let bBoxes = model.BoundingBoxes
+                //let resize = SmartSizeSymbol.selectiveResizeSymbol reorder s2 s1 Left Right BusWireUpdate.updateSymbolWires
                 let rechannel = 
                     getVerticalChannel bBoxes[s1.Id] bBoxes[s2.Id]
                     |> function 
@@ -816,12 +817,12 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                             |> function 
                                | None -> 
                                     printfn "Symbols are not oriented for either a vertical or horizontal channel"
-                                    resize
+                                    reorderOne
                                | Some channel ->
-                                    SmartChannel.smartChannelRoute Horizontal channel resize
+                                    SmartChannel.smartChannelRoute Horizontal channel reorderOne
                        | Some channel ->
-                            SmartChannel.smartChannelRoute Vertical channel resize
-                {model with Wire = rechannel; UndoList = appendUndoList model.UndoList model}, Cmd.none
+                            SmartChannel.smartChannelRoute Vertical channel reorderOne
+                {model with Wire = rechannel; UndoList = appendUndoList model.UndoList model}, Cmd.ofMsg TestPortPosition
             | None -> 
                 printfn "Error: can't validate the two symbols selected to reorder ports"
                 model, Cmd.none
