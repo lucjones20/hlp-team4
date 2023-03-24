@@ -622,7 +622,7 @@ let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: 
     let (choices: PopupChoice list) =
         [{Number = 1; ButtonColor = IsPrimary; ButtonText = "Resize based on inner ports"};
         {Number = 2; ButtonColor = IsPrimary; ButtonText = "Resize based on outer ports"};
-        {Number = 3; ButtonColor = IsLight; ButtonText = "Cancel resize"};
+        {Number = 3; ButtonColor = IsLight; ButtonText = "Do not resize"};
         ]
 
     let buttonAction selectedChoiceNumber dispatch  _ =
