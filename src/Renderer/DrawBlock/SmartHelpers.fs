@@ -111,9 +111,28 @@ let updateModelWires
         ||> List.fold (fun wireMap wireToAdd -> Map.add wireToAdd.WId wireToAdd wireMap))
 
 
-module Constants = 
-    let portTextCharWidth = 8.
 
+/// Find the Y position of input ports for a given symbol
+/// Function takes in a SymbolT model and a symbol
+/// This uses the getPortLocation from the Symbol module and applies it to the
+/// list of port ids located on the left side of the module
+/// HLP23: AUTHOR Jones
+let findInputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list = 
+    symbol.PortMaps.Order.TryFind Left // try to get list of port ids of the symbol
+    |> Option.defaultValue [] // extract the list from option
+    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto the list of port ids
+
+
+/// Find the Y position of output ports of a given symbol
+/// Function takes in a SymbolT model and a symbol
+/// This uses the getPortLocation from the Symbol module and applies it to the
+/// list of port ids located on the right side of the module
+/// HLP23: AUTHOR Jones
+let findOutputPortYPos (model: SymbolT.Model) (symbol: Symbol): XYPos list= 
+    symbol.PortMaps.Order.TryFind Right // try to get list of port ids of the symbol
+    |> Option.defaultValue [] // extract list from option
+    |> List.map (Symbol.getPortLocation None model) // map getPortLocation onto list of port ids
+ 
 
 /// Find the orientation of a wire segment given its index
 ///HLP23: AUTHOR Sougioultzoglou
@@ -148,82 +167,6 @@ let findParallelSegmentIndexes (wire: Wire) (orientation: Orientation)=
         if findSegmentOrientation wire seg.Index = orientation
         then seg.Index::indexes
         else  indexes) []
-
-
-/// Returns a distance for a wire move that has been reduced if needed to
-/// keep the segment edges that need to be moved curved, as well as enforce minimum first/last segment lengths
-let getSaferDistanceForMove (segments: Segment list) (index: int) (distance: float) =
-    /// Returns a list of segments up to the first non-zero segment perpendicular to the segment leaving the port
-    let findBindingSegments portIndex (segList: Segment List) = 
-        segList
-        |> List.takeWhile (fun seg -> seg.Index % 2 = portIndex % 2 || seg.Length = 0) // Works for both input and output ports
-
-    let findDistanceFromPort boundSegList =
-        (0., boundSegList)
-        ||> List.fold (fun dist seg -> dist + seg.Length) // Since the segments in perpendicular direction are 0 we can just sum up all the segments as if they are in the same direction
-   
-    let reduceDistance bindingSegs findBindingIndex distance = 
-        if findBindingIndex bindingSegs <> index then 
-            distance
-        else
-            findDistanceFromPort bindingSegs
-            |> (fun dist -> 
-                    if sign dist = -1 then 
-                        max distance (dist + Constants.nubLength + Constants.cornerRadius)
-                    else 
-                        min distance (dist - Constants.nubLength - Constants.cornerRadius))
-
-    let bindingInputSegs = 
-        segments
-        |> findBindingSegments 0
-        |> List.map (fun seg -> { seg with Length = -seg.Length})
-
-    let bindingOutputSegs =
-        List.rev segments
-        |> findBindingSegments (segments.Length - 1)
-
-    let findInputBindingIndex boundSegList =
-        boundSegList
-        |> List.length
-
-    let findOutputBindingIndex =
-        findInputBindingIndex
-        >> (-) (segments.Length - 1)
-
-    distance
-    |> reduceDistance bindingInputSegs findInputBindingIndex
-    |> reduceDistance bindingOutputSegs findOutputBindingIndex
-
-
-/// Returns a wwireOf_aining the updated list of segments after a segment is moved by 
-/// a specified distance. The moved segment is tagged as manual so that it is no longer auto-routed.
-/// This function is very similar to moveSegment but restricts the moved distance so as not to cut of any rounded
-/// segment corners
-/// Throws an error if the index of the segment being moved is not a valid movable segment index.
-let moveSegmentRestricted (model:Model) (seg:Segment) (distance:float) = 
-    let wire = model.Wires[seg.WireId]
-    let segments = wire.Segments
-    let idx = seg.Index
-
-    if idx <= 0 || idx >= segments.Length - 1 then // Should never happen
-        printfn $"Trying to move wire segment {seg.Index}:{logSegmentId seg}, out of range in wire length {segments.Length}"
-        wire
-    else
-        let safeDistance = getSaferDistanceForMove segments idx distance
-    
-        let prevSeg = segments[idx - 1]
-        let nextSeg = segments[idx + 1]
-        let movedSeg = segments[idx]
-
-        let newPrevSeg = { prevSeg with Length = prevSeg.Length + safeDistance }
-        let newNextSeg = { nextSeg with Length = nextSeg.Length - safeDistance }
-        let newMovedSeg = { movedSeg with Mode = Manual }
-    
-        let newSegments = 
-            segments[.. idx - 2] @ [newPrevSeg; newMovedSeg; newNextSeg] @ segments[idx + 2 ..]
-
-        { wire with Segments = newSegments }
-
 
 
 /// sort 2 symbols with respect to their X position
@@ -325,6 +268,21 @@ let sortSymbolByOutputToInput (wModel: BusWireT.Model) (s1: Symbol) (s2: Symbol)
     |> function 
         |(Some(_), Some(_)) -> (s1,s2)
         | _ -> (s2, s1)
+
+
+//type ResizeScenario = |Horizontal | Vertical | Mixed
+
+//type ResizeScenario = |HorizontalResize | Verticalresize | MixedResize
+
+
+// change name
+let isValidResize (wires: Map<ConnectionId, Wire>) (referenceSymbol: Symbol) (symbolToResize: Symbol): bool = 
+    wires
+    |> Map.values
+    |> Seq.map (fun x -> (x.OutputPort, x.InputPort))
+    |> Seq.map (fun (op,ip) -> (Map.find (string op) referenceSymbol.PortMaps.Orientation), (Map.find (string ip) symbolToResize.PortMaps.Orientation))
+    |> Seq.map (fun (e1, e2) -> e1 = e2)
+    |> Seq.reduce(||)
 
 
 /// Function to determine if a point is within a Bounding Box.
@@ -463,31 +421,6 @@ let getEdgePosition symbol edge =
         | Top -> symbol.Pos.Y
         | Bottom -> symbol.Pos.Y - symbol.Component.H * Option.defaultValue 1. symbol.VScale
 
-let getTotalLengthFromPortLabels portList = 
-    let labelLengths = (
-        List.map String.length portList
-        |> List.map (float)
-    )
-    (0., labelLengths)
-    ||> List.fold (fun acc e -> acc + e)
-    |> (*) Constants.portTextCharWidth
-
-let getMinimumHeightAndWidth symbol = 
-    let portIdMap = getCustomPortIdMap symbol.Component
-    let portMaps = makeMapsConsistent portIdMap symbol
-    let convertIdsToLbls currMap edge idList =
-        let lblLst = List.map (fun id -> portIdMap[id]) idList
-        Map.add edge lblLst currMap
-    let portLabels = 
-        (Map.empty, portMaps.Order) ||> Map.fold convertIdsToLbls
-    let minTopWidth = getTotalLengthFromPortLabels portLabels[Top]
-    let minBottomWidth = getTotalLengthFromPortLabels portLabels[Bottom]
-    let minLeftHeight = getTotalLengthFromPortLabels portLabels[Left]
-    let minRightHeight = getTotalLengthFromPortLabels portLabels[Right]
-    let minWidth = max minTopWidth minBottomWidth
-    let minHeight = max minLeftHeight minRightHeight
-    minHeight, minWidth
-
 
 let formatSymbolPopup() : ReactElement =
     let styledSpan styles txt = span [Style styles] [str <| txt]
@@ -516,15 +449,20 @@ let testPopup : (BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement =
     let foot = div [] [str "test2"]
     closablePopupFunc "test" (fun _ -> body) (fun _ -> foot) []
 
+
+///Represents a choice in a popup and is intended for use in multipleChoicePopupFunc
+/// Carries information regarding this choice
+/// HLP23: AUTHOR Sougioultzoglou
 type PopupChoice = {
     Number: int
     ButtonColor: IColor
     ButtonText: string
 }
 
-// let getEdgePosition e1 e2 (xy: XorY) wModel referenceSymbol symbolToResize = 
-//     (Map.tryFind e1 referenceSymbol.PortMaps.Order, M)
 
+/// A choice dialog popup returning the popup function that supports up to 6 different choices
+/// ,each with a button that has a configurable Color
+/// HLP23: AUTHOR Sougioultzoglou
 let multipleChoicePopupFunc
         title 
         (body:(Msg->Unit)->ReactElement) 
@@ -550,70 +488,18 @@ let multipleChoicePopupFunc
 
     closablePopupFunc title body foot []
 
-
-//let multipleChoicePopupFuncTest
-    //    title 
-    //    (body:(Msg->Unit)->ReactElement) 
-    //    (choices: PopupChoice list)
-    //    (buttonAction: int -> (Msg->Unit) -> Browser.Types.MouseEvent -> Unit) =
-    //let foot dispatch =
-    //    let leftChildren =
-    //       [div [] (choices
-    //       //|> List.filter (fun c -> c.Number % 2 = 0)
-    //       |> List.mapi(fun i choice ->
-    //              match i % 2, i = List.length choices - 1 with
-    //              | 1 , true ->
-    //                   div [] []
-    //              | 0, _ -> 
-    //                  div [] [Level.item [] [
-    //                              Button.button [
-    //                                  Button.Color choice.ButtonColor
-    //                                  Button.OnClick (buttonAction choice.Number dispatch)
-    //                              ] [ str choice.ButtonText ]
-    //                          ]
-    //                         ]
-                   
-    //              | _  ->
-    //                   div [] [ br [] ]
-    //                )
-    //            )]
-
-    //    let rightChildren =
-    //       [div [] (choices
-    //       //|> List.filter (fun c -> c.Number % 2 = 0)
-    //       |> List.tail
-    //       |> List.mapi(fun i choice ->
-    //              match i % 2 with
-    //              | 0 -> 
-    //                  div [] [Level.item [] [
-    //                              Button.button [
-    //                                  Button.Color choice.ButtonColor
-    //                                  Button.OnClick (buttonAction choice.Number dispatch)
-    //                              ] [ str choice.ButtonText ]
-    //                          ]
-    //                         ]
-                           
-    //              | _  ->
-    //                   div [] [ br [] ]
-    //                )
-    //            )]
-                
-    //    Level.level [ Level.Level.Props [ Style [ Width "100%" ] ] ] [
-    //        Level.left [] leftChildren
-    //        Level.right [] rightChildren
-    //    ]
-
-    //closablePopupFunc title body foot []
-
-
+/// Returns a popup function that prompts the user to select between resizing
+/// the selected symbol based on the ports located on the inside or outside edges of the channel formed by the two symbols
+/// Includes an option to not resize at all
+/// HLP23: AUTHOR Sougioultzoglou
 let resizeSelectPopup (symbol1: Symbol) (symbol2: Symbol) (edge1: Edge) (edge2: Edge)
     : ((BusWireT.Msg -> unit) -> PopupDialogData -> ReactElement) option =
 
-    let body = div [] [str "This is complex resizing! Would you like to resize based on the inner ports or the outer ports?"]
+    let body = div [] [str "explanation"]
     let (choices: PopupChoice list) =
         [{Number = 1; ButtonColor = IsPrimary; ButtonText = "Resize based on inner ports"};
         {Number = 2; ButtonColor = IsPrimary; ButtonText = "Resize based on outer ports"};
-        {Number = 3; ButtonColor = IsLight; ButtonText = "Don't resize"};
+        {Number = 3; ButtonColor = IsLight; ButtonText = "Do not resize"};
         ]
 
     let buttonAction selectedChoiceNumber dispatch  _ =
